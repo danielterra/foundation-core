@@ -90,6 +90,54 @@ fn import_ontology_sql(conn: &Connection) -> Result<(), DbError> {
     Ok(())
 }
 
+/// Builds the full-text index in a background thread so boot never blocks on it.
+/// The index lives in the platform app-data dir; any legacy index beside the DB
+/// is removed so it rebuilds in the canonical location.
+#[cfg(not(test))]
+fn spawn_background_search_init(db_path: &Path, t_startup: std::time::Instant) {
+    let search_dir = dirs::data_local_dir()
+        .map(|p| p.join(crate::paths::app_namespace()).join("search"))
+        .unwrap_or_else(|| std::path::PathBuf::from("search"));
+    if let Err(e) = std::fs::create_dir_all(&search_dir) {
+        log_backend("warn", &format!("[SEARCH] Failed to create app-data search dir {:?}: {}", search_dir, e));
+    }
+
+    if let Some(legacy_dir) = db_path.parent().map(|p| p.join("search")) {
+        if legacy_dir.exists() && legacy_dir != search_dir {
+            log_backend("info", &format!(
+                "[SEARCH] Removing legacy index next to DB: {:?} (will rebuild in app-data)",
+                legacy_dir,
+            ));
+            if let Err(e) = std::fs::remove_dir_all(&legacy_dir) {
+                log_backend("warn", &format!("[SEARCH] Could not remove legacy index: {}", e));
+            }
+        }
+    }
+
+    let search_db_path = db_path.to_path_buf();
+    std::thread::spawn(move || {
+        let t = std::time::Instant::now();
+        log_backend("info", "[SEARCH] Background init starting");
+        match Connection::open(&search_db_path) {
+            Ok(bg_conn) => {
+                crate::search::init(&search_dir, &bg_conn);
+                log_backend("info", &format!("[SEARCH] Background init complete in {}ms", t.elapsed().as_millis()));
+            }
+            Err(e) => {
+                log_backend("error", &format!("[SEARCH] Background init failed: {}", e));
+            }
+        }
+    });
+    log_backend("info", &format!("[STARTUP] search_init=spawned ({}ms)", t_startup.elapsed().as_millis()));
+}
+
+/// The global Tantivy index is a process-wide singleton; letting each unit test's
+/// `initialize_db` race a background init against it makes search results depend on
+/// thread timing. Under `cfg(test)` the index stays uninitialized, so search falls
+/// back to a deterministic SQL scan over the test's own connection.
+#[cfg(test)]
+fn spawn_background_search_init(_db_path: &Path, _t_startup: std::time::Instant) {}
+
 /// Initialize the database at `db_path`, running schema creation and migrations.
 /// The optional `emit_fn` callback is called with `(event_name, payload)` to notify
 /// callers about startup progress (e.g. "import-complete"). Pass `None` when no
@@ -151,40 +199,7 @@ where
 
     run_vacuum_once(&conn, emit_fn.as_ref().map(|f| f as &dyn Fn(&str, serde_json::Value)));
 
-    let search_dir = dirs::data_local_dir()
-        .map(|p| p.join(crate::paths::app_namespace()).join("search"))
-        .unwrap_or_else(|| std::path::PathBuf::from("search"));
-    if let Err(e) = std::fs::create_dir_all(&search_dir) {
-        log_backend("warn", &format!("[SEARCH] Failed to create app-data search dir {:?}: {}", search_dir, e));
-    }
-
-    if let Some(legacy_dir) = db_path.parent().map(|p| p.join("search")) {
-        if legacy_dir.exists() && legacy_dir != search_dir {
-            log_backend("info", &format!(
-                "[SEARCH] Removing legacy index next to DB: {:?} (will rebuild in app-data)",
-                legacy_dir,
-            ));
-            if let Err(e) = std::fs::remove_dir_all(&legacy_dir) {
-                log_backend("warn", &format!("[SEARCH] Could not remove legacy index: {}", e));
-            }
-        }
-    }
-
-    let search_db_path = db_path.to_path_buf();
-    std::thread::spawn(move || {
-        let t = std::time::Instant::now();
-        log_backend("info", "[SEARCH] Background init starting");
-        match Connection::open(&search_db_path) {
-            Ok(bg_conn) => {
-                crate::search::init(&search_dir, &bg_conn);
-                log_backend("info", &format!("[SEARCH] Background init complete in {}ms", t.elapsed().as_millis()));
-            }
-            Err(e) => {
-                log_backend("error", &format!("[SEARCH] Background init failed: {}", e));
-            }
-        }
-    });
-    log_backend("info", &format!("[STARTUP] search_init=spawned ({}ms)", t_startup.elapsed().as_millis()));
+    spawn_background_search_init(db_path, t_startup);
 
     if let Some(f) = emit_fn {
         f("import-complete", serde_json::Value::Null);

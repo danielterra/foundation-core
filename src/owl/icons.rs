@@ -22,10 +22,10 @@ pub fn icon_iri_to_display(_conn: &Connection, iri: &str) -> Option<String> {
     None
 }
 
-/// Resolve an icon literal value to an absolute path/URL the frontend can render.
+/// Resolve an icon literal value to an absolute path/URL the caller can render.
 /// Portable relative paths (e.g. `attachments/foo.jpg`) are joined onto the
 /// current foundation_dir and returned as `file://...` so callers that strip
-/// the prefix and pass to `convertFileSrc` keep working unchanged.
+/// the prefix (e.g. to feed a local-file host API) keep working unchanged.
 pub fn icon_literal_to_display(value: &str) -> String {
     if value.starts_with("http://")
         || value.starts_with("https://")

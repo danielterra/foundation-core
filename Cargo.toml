@@ -26,10 +26,6 @@ tantivy = "0.22"
 dirs = "5.0"
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros"] }
 
-[[bin]]
-name = "update_material_symbols"
-path = "scripts/update_material_symbols.rs"
-
 [features]
 test-helpers = []
 

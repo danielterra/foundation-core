@@ -1,7 +1,7 @@
 // ============================================================================
 // EAVTO Executor Module
 // ============================================================================
-// Provides async execution for database operations to avoid blocking the UI
+// Provides async execution for database operations to avoid blocking the caller
 //
 // Architecture:
 // - Single writer thread with sequential queue for writes
@@ -16,7 +16,7 @@
 // - Pool drain after a TRUNCATE checkpoint leaves it empty; read() rehydrates by
 //   opening a fresh connection (bounded by the semaphore, not by pool size)
 // - WAL mode allows concurrent reads and writes at the SQLite file level
-// - All operations are async to avoid blocking Tauri's event loop
+// - All operations are async to avoid blocking the caller's async runtime
 // ============================================================================
 
 use rusqlite::Connection;

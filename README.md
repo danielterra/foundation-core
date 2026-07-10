@@ -122,14 +122,16 @@ Omitting this call uses the Foundation defaults above. The first call wins; subs
 
 ## Regenerating the icon asset
 
-When `node_modules/material-symbols` is updated, regenerate `assets/material_symbols_names.txt`:
+`assets/material_symbols_names.txt` is committed to this repo and read at build
+time by `build.rs` to produce `material_symbols.rs` in `OUT_DIR` — so the crate
+builds standalone, with no `node_modules` dependency.
 
-```sh
-cargo run --manifest-path src-tauri/crates/foundation-core/Cargo.toml \
-          --bin update_material_symbols
-```
-
-The build script (`build.rs`) reads this asset to produce `material_symbols.rs` in `OUT_DIR`, without requiring `node_modules` at build time.
+The asset is derived from the npm `material-symbols` package, which lives in the
+consuming application, not here. Regeneration therefore belongs on the app side:
+the **Foundation** app ships a `update:material-symbols` script that reads its
+own `node_modules/material-symbols` and writes the refreshed asset back into a
+local checkout of this crate. See the Foundation repo for usage. This keeps
+foundation-core agnostic to any particular frontend/build tooling.
 
 ## License
 

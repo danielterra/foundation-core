@@ -150,32 +150,71 @@ pub fn evaluate_formula_for_instance_raw(
     let formula = query_formula(conn, property_iri)
         .ok_or_else(|| format!("Failed to load formula for {}", property_iri))?;
 
-    let refs = extract_references(&formula);
-    let mut expr = formula.clone();
+    let resolver = |ref_iri: &str| resolve_ref_typed(conn, instance_iri, ref_iri);
+    match crate::owl::expr::evaluate(&formula, &resolver) {
+        Ok(value) => value.as_number()
+            .map(crate::owl::formula::format_calculated_number)
+            .or_else(|_| Ok(value.as_text())),
+        // Naming the instance matters: the same formula is fine on a thousand rows
+        // and wrong on one, and without the IRI there is no way to find that one.
+        Err(reason) => Err(format!("{} on instance {}", reason, instance_iri)),
+    }
+}
 
-    for ref_iri in &refs {
-        match resolve_ref_value(conn, instance_iri, ref_iri) {
-            Some(v) => {
-                let placeholder = format!("{{{{{}}}}}", ref_iri);
-                // Wrap in parentheses so negative values don't produce invalid infix
-                // unary minus expressions (e.g. `a + -3` — eval_expr explicitly does not
-                // support infix unary minus and would fail).
-                let safe_value = format!("({})", v);
-                expr = expr.replace(&placeholder, &safe_value);
-            }
-            None => {
-                return Err(format!(
-                    "Missing value for {{{{{}}}}} on instance {}",
-                    ref_iri, instance_iri
-                ));
-            }
-        }
+/// Resolves a reference to a typed value.
+///
+/// The type is what decides whether `+` adds or joins, and whether a comparison
+/// is numeric or lexical — so a numeric property must not come back as text just
+/// because the store hands every literal over as a string.
+fn resolve_ref_typed(
+    conn: &Connection,
+    instance_iri: &str,
+    ref_iri: &str,
+) -> Option<crate::owl::expr::Value> {
+    use crate::owl::expr::Value;
+
+    let numeric = is_numeric_property(conn, ref_iri);
+
+    let stored = conn.query_row(
+        "SELECT object_value FROM triples \
+         WHERE subject = ? AND predicate = ? AND retracted = 0 AND is_current = 1 \
+         LIMIT 1",
+        rusqlite::params![instance_iri, ref_iri],
+        |row| row.get::<_, Option<String>>(0),
+    ).ok().flatten();
+
+    if let Some(raw) = stored {
+        return Some(match (numeric, raw.trim().parse::<f64>()) {
+            (true, Ok(n)) => Value::Number(n),
+            _ => Value::Text(raw),
+        });
     }
 
-    match eval_expr(expr.trim()) {
-        Ok(result) => Ok(format_calculated_number(result)),
-        Err(reason) => Err(format!("Formula evaluation error: {}", reason)),
+    if query_aggregation(conn, ref_iri).is_some() {
+        return crate::owl::aggregation::evaluate_aggregation_for_instance(conn, instance_iri, ref_iri)
+            .ok()
+            .map(|v| v.trim().parse::<f64>().map(Value::Number).unwrap_or(Value::Text(v)));
     }
+
+    if query_formula(conn, ref_iri).is_some() {
+        return evaluate_formula_for_instance_raw(conn, instance_iri, ref_iri)
+            .ok()
+            .map(|v| match (numeric, v.trim().parse::<f64>()) {
+                (true, Ok(n)) => Value::Number(n),
+                _ => Value::Text(v),
+            });
+    }
+
+    // A numeric property with nothing stored counts as zero, so one unfilled
+    // field doesn't take the whole sum down with it.
+    if numeric {
+        return Some(Value::Number(0.0));
+    }
+
+
+    // Anything else missing is Empty: it renders blank instead of failing, which
+    // is what "null values result in an empty string for that segment" means.
+    None
 }
 
 /// Format an `f64` formula/aggregation result as a clean string,

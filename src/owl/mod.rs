@@ -8,6 +8,7 @@ pub mod vocabulary;
 pub mod cardinality;
 pub mod aggregation;
 pub mod formula;
+pub mod expr;
 pub mod query_property;
 pub mod search;
 

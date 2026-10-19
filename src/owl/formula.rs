@@ -94,47 +94,17 @@ pub fn evaluate_formula_for_instance(
     evaluate_formula_for_instance_raw(conn, instance_iri, property_iri)
 }
 
-/// Resolve the value of a property for a given instance.
-///
-/// Tries the stored literal first. If absent, computes on-the-fly for aggregation
-/// or formula properties so that formulas can reference other calculated fields
-/// regardless of whether their cached value has been persisted yet.
-fn resolve_ref_value(conn: &Connection, instance_iri: &str, ref_iri: &str) -> Option<String> {
-    let stored = conn.query_row(
-        "SELECT object_value FROM triples \
-         WHERE subject = ? AND predicate = ? AND retracted = 0 AND is_current = 1 \
-         LIMIT 1",
-        rusqlite::params![instance_iri, ref_iri],
-        |row| row.get::<_, Option<String>>(0),
-    ).ok().flatten();
-
-    if stored.is_some() {
-        return stored;
-    }
-
-    if query_aggregation(conn, ref_iri).is_some() {
-        return crate::owl::aggregation::evaluate_aggregation_for_instance(conn, instance_iri, ref_iri).ok();
-    }
-
-    if query_formula(conn, ref_iri).is_some() {
-        return evaluate_formula_for_instance_raw(conn, instance_iri, ref_iri).ok();
-    }
-
-    // Numeric properties without a stored value default to zero — avoids formula failure
-    if is_numeric_property(conn, ref_iri) {
-        return Some("0".to_string());
-    }
-
-    None
-}
-
 fn is_numeric_property(conn: &Connection, property_iri: &str) -> bool {
-    let range: Option<String> = crate::eavto::query::get_by_entity_predicate(conn, property_iri, "rdfs:range")
-        .ok()
-        .and_then(|r| r.triples.into_iter().next())
-        .and_then(|t| t.object.as_iri().map(|s| s.to_string()));
+    let range: Option<String> =
+        crate::eavto::query::get_by_entity_predicate(conn, property_iri, "rdfs:range")
+            .ok()
+            .and_then(|r| r.triples.into_iter().next())
+            .and_then(|t| t.object.as_iri().map(|s| s.to_string()));
 
-    range.as_deref().map(|r| NUMERIC_RANGES.contains(&r)).unwrap_or(false)
+    range
+        .as_deref()
+        .map(|r| NUMERIC_RANGES.contains(&r))
+        .unwrap_or(false)
 }
 
 /// Evaluate a formula for a specific instance using a raw `rusqlite::Connection`.
@@ -152,7 +122,8 @@ pub fn evaluate_formula_for_instance_raw(
 
     let resolver = |ref_iri: &str| resolve_ref_typed(conn, instance_iri, ref_iri);
     match crate::owl::expr::evaluate(&formula, &resolver) {
-        Ok(value) => value.as_number()
+        Ok(value) => value
+            .as_number()
             .map(crate::owl::formula::format_calculated_number)
             .or_else(|_| Ok(value.as_text())),
         // Naming the instance matters: the same formula is fine on a thousand rows
@@ -175,13 +146,16 @@ fn resolve_ref_typed(
 
     let numeric = is_numeric_property(conn, ref_iri);
 
-    let stored = conn.query_row(
-        "SELECT object_value FROM triples \
+    let stored = conn
+        .query_row(
+            "SELECT object_value FROM triples \
          WHERE subject = ? AND predicate = ? AND retracted = 0 AND is_current = 1 \
          LIMIT 1",
-        rusqlite::params![instance_iri, ref_iri],
-        |row| row.get::<_, Option<String>>(0),
-    ).ok().flatten();
+            rusqlite::params![instance_iri, ref_iri],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .ok()
+        .flatten();
 
     if let Some(raw) = stored {
         return Some(match (numeric, raw.trim().parse::<f64>()) {
@@ -191,9 +165,18 @@ fn resolve_ref_typed(
     }
 
     if query_aggregation(conn, ref_iri).is_some() {
-        return crate::owl::aggregation::evaluate_aggregation_for_instance(conn, instance_iri, ref_iri)
-            .ok()
-            .map(|v| v.trim().parse::<f64>().map(Value::Number).unwrap_or(Value::Text(v)));
+        return crate::owl::aggregation::evaluate_aggregation_for_instance(
+            conn,
+            instance_iri,
+            ref_iri,
+        )
+        .ok()
+        .map(|v| {
+            v.trim()
+                .parse::<f64>()
+                .map(Value::Number)
+                .unwrap_or(Value::Text(v))
+        });
     }
 
     if query_formula(conn, ref_iri).is_some() {
@@ -210,7 +193,6 @@ fn resolve_ref_typed(
     if numeric {
         return Some(Value::Number(0.0));
     }
-
 
     // Anything else missing is Empty: it renders blank instead of failing, which
     // is what "null values result in an empty string for that segment" means.
@@ -342,11 +324,8 @@ pub fn eval_expr(expr: &str) -> Result<f64, String> {
 /// Used to reject aggregation syntax in `foundation:formula` fields.
 pub fn contains_aggregation_call(s: &str) -> bool {
     const PREFIXES: &[&str] = &[
-        "SOMA(", "SUM(",
-        "MÉDIA(", "MEDIA(", "AVG(",
-        "MÍNIMO(", "MINIMO(", "MIN(",
-        "MÁXIMO(", "MAXIMO(", "MAX(",
-        "CONTAR(", "COUNT(",
+        "SOMA(", "SUM(", "MÉDIA(", "MEDIA(", "AVG(", "MÍNIMO(", "MINIMO(", "MIN(", "MÁXIMO(",
+        "MAXIMO(", "MAX(", "CONTAR(", "COUNT(",
     ];
     PREFIXES.iter().any(|p| s.contains(p))
 }
@@ -357,7 +336,8 @@ pub fn validate_expression(formula: &str) -> Result<(), crate::owl::OwlError> {
     if contains_aggregation_call(formula) {
         return Err(crate::owl::OwlError::ValidationError(
             "Fórmulas aritméticas não suportam chamadas de agregação (SOMA, MÉDIA, etc.). \
-             Use o campo 'aggregation' para definir propriedades de agregação.".to_string()
+             Use o campo 'aggregation' para definir propriedades de agregação."
+                .to_string(),
         ));
     }
     let mut expr = formula.to_string();
@@ -371,9 +351,16 @@ pub fn validate_expression(formula: &str) -> Result<(), crate::owl::OwlError> {
 }
 
 const NUMERIC_RANGES: &[&str] = &[
-    "xsd:integer", "xsd:decimal", "xsd:float", "xsd:double",
-    "xsd:int", "xsd:long", "xsd:short", "xsd:byte",
-    "xsd:nonNegativeInteger", "xsd:positiveInteger",
+    "xsd:integer",
+    "xsd:decimal",
+    "xsd:float",
+    "xsd:double",
+    "xsd:int",
+    "xsd:long",
+    "xsd:short",
+    "xsd:byte",
+    "xsd:nonNegativeInteger",
+    "xsd:positiveInteger",
 ];
 
 /// Validate that every `{{ref}}` in the formula points to an existing property with a numeric range.
@@ -396,17 +383,18 @@ pub fn validate_references_numeric(
             )));
         }
 
-        let is_computed = query_aggregation(conn, &ref_iri).is_some()
-            || query_formula(conn, &ref_iri).is_some();
+        let is_computed =
+            query_aggregation(conn, &ref_iri).is_some() || query_formula(conn, &ref_iri).is_some();
 
         if is_computed {
             continue;
         }
 
-        let range: Option<String> = crate::eavto::query::get_by_entity_predicate(conn, &ref_iri, "rdfs:range")
-            .ok()
-            .and_then(|r| r.triples.into_iter().next())
-            .and_then(|t| t.object.as_iri().map(|s| s.to_string()));
+        let range: Option<String> =
+            crate::eavto::query::get_by_entity_predicate(conn, &ref_iri, "rdfs:range")
+                .ok()
+                .and_then(|r| r.triples.into_iter().next())
+                .and_then(|t| t.object.as_iri().map(|s| s.to_string()));
 
         if let Some(r) = range.as_deref() {
             if !NUMERIC_RANGES.contains(&r) {
@@ -424,10 +412,7 @@ pub fn validate_references_numeric(
 ///
 /// Properties with no formula are treated as having no dependencies. If no formulas
 /// exist among the given IRIs, the original order is preserved.
-pub fn topological_sort_properties(
-    conn: &Connection,
-    property_iris: &[&str],
-) -> Vec<String> {
+pub fn topological_sort_properties(conn: &Connection, property_iris: &[&str]) -> Vec<String> {
     let iris_set: std::collections::HashSet<&str> = property_iris.iter().copied().collect();
 
     // Build adjacency: dep -> dependents (dep must come before dependent)
@@ -510,7 +495,10 @@ mod tests {
     fn format_calculated_number_supresses_ieee_754_noise_on_decimal_sums() {
         // Regression: Bug_1777120091054 — f64 sums leak IEEE 754 noise
         // (e.g.: -100.50 + (-200.25) + ... = -20389.580000000024).
-        assert_eq!(format_calculated_number(-20389.580000000024_f64), "-20389.58");
+        assert_eq!(
+            format_calculated_number(-20389.580000000024_f64),
+            "-20389.58"
+        );
         assert_eq!(format_calculated_number(35554.910000000025_f64), "35554.91");
         assert_eq!(format_calculated_number(1114.729999999974_f64), "1114.73");
         assert_eq!(format_calculated_number(6062.209999999999_f64), "6062.21");
@@ -760,7 +748,11 @@ mod tests {
         let conn = setup_test_db();
         let err = validate_no_cycle(&conn, "p:A", "{{p:A}} + 1").unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("Circular dependency"), "unexpected error: {}", msg);
+        assert!(
+            msg.contains("Circular dependency"),
+            "unexpected error: {}",
+            msg
+        );
         assert!(msg.contains("p:A"), "chain should mention p:A: {}", msg);
     }
 
@@ -773,7 +765,11 @@ mod tests {
         // Now try to set p:B to reference p:A → cycle: p:B → p:A → p:B
         let err = validate_no_cycle(&conn, "p:B", "{{p:A}}").unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("Circular dependency"), "unexpected error: {}", msg);
+        assert!(
+            msg.contains("Circular dependency"),
+            "unexpected error: {}",
+            msg
+        );
         assert!(msg.contains("p:B"), "chain should mention p:B: {}", msg);
         assert!(msg.contains("p:A"), "chain should mention p:A: {}", msg);
     }
@@ -788,7 +784,11 @@ mod tests {
         // Now validate p:C with formula "{{p:B}}" → p:C → p:B → p:A → p:C (cycle)
         let err = validate_no_cycle(&conn, "p:C", "{{p:B}}").unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("Circular dependency"), "unexpected error: {}", msg);
+        assert!(
+            msg.contains("Circular dependency"),
+            "unexpected error: {}",
+            msg
+        );
         assert!(msg.contains("p:A"), "chain should mention p:A: {}", msg);
         assert!(msg.contains("p:B"), "chain should mention p:B: {}", msg);
         assert!(msg.contains("p:C"), "chain should mention p:C: {}", msg);
@@ -814,7 +814,11 @@ mod tests {
         let err = validate_no_cycle(&conn, "p:A", "{{p:B}}").unwrap_err();
         let msg = err.to_string();
         // The formatted chain must contain "→" separators and all three occurrences
-        assert!(msg.contains('→') || msg.contains("->"), "missing chain separator: {}", msg);
+        assert!(
+            msg.contains('→') || msg.contains("->"),
+            "missing chain separator: {}",
+            msg
+        );
         assert!(msg.contains("p:A"), "missing p:A in chain: {}", msg);
         assert!(msg.contains("p:B"), "missing p:B in chain: {}", msg);
     }
@@ -841,7 +845,11 @@ mod tests {
         insert_value(&conn, tx, "inst:x", "p:b", "3");
         let result = evaluate_formula_for_instance_raw(&conn, "inst:x", "p:sum").unwrap();
         assert_eq!(result, "5");
-        assert!(!result.contains('.'), "integer result should not contain decimal point: {}", result);
+        assert!(
+            !result.contains('.'),
+            "integer result should not contain decimal point: {}",
+            result
+        );
     }
 
     #[test]
@@ -862,15 +870,27 @@ mod tests {
         let tx = insert_tx(&conn);
         insert_formula(&conn, tx, "p:calc", "{{p:missing}} + 1");
         let err = evaluate_formula_for_instance_raw(&conn, "inst:obj", "p:calc").unwrap_err();
-        assert!(err.contains("Missing value for {{p:missing}}"), "unexpected error: {}", err);
-        assert!(err.contains("inst:obj"), "error should mention instance IRI: {}", err);
+        assert!(
+            err.contains("Missing value for {{p:missing}}"),
+            "unexpected error: {}",
+            err
+        );
+        assert!(
+            err.contains("inst:obj"),
+            "error should mention instance IRI: {}",
+            err
+        );
     }
 
     #[test]
     fn test_evaluate_formula_no_formula_on_property_gives_error() {
         let conn = setup_test_db();
         let err = evaluate_formula_for_instance_raw(&conn, "inst:obj", "p:no_formula").unwrap_err();
-        assert!(err.contains("Failed to load formula"), "unexpected error: {}", err);
+        assert!(
+            err.contains("Failed to load formula"),
+            "unexpected error: {}",
+            err
+        );
     }
 
     #[test]
@@ -896,7 +916,11 @@ mod tests {
         insert_value(&conn, tx, "inst:budget", "p:margin", "-29055.86");
         let result = evaluate_formula_for_instance_raw(&conn, "inst:budget", "p:closing").unwrap();
         let parsed: f64 = result.parse().expect("must parse as f64");
-        assert!((parsed - (-8555.90)).abs() < 1e-2, "expected ~-8555.90, got {}", result);
+        assert!(
+            (parsed - (-8555.90)).abs() < 1e-2,
+            "expected ~-8555.90, got {}",
+            result
+        );
     }
 
     // ── topological_sort_properties ───────────────────────────────────────────
@@ -1014,7 +1038,10 @@ mod tests {
         ).unwrap();
 
         let result = validate_references_numeric(&conn, "{{p:width}} * 2");
-        assert!(result.is_ok(), "formula referencing numeric property must pass");
+        assert!(
+            result.is_ok(),
+            "formula referencing numeric property must pass"
+        );
     }
 
     #[test]
@@ -1033,20 +1060,29 @@ mod tests {
         ).unwrap();
 
         let result = validate_references_numeric(&conn, "{{p:name}} + 1");
-        assert!(result.is_err(), "formula referencing string property must be rejected");
+        assert!(
+            result.is_err(),
+            "formula referencing string property must be rejected"
+        );
     }
 
     #[test]
     fn test_validate_references_numeric_rejects_nonexistent_property() {
         let conn = setup_test_db();
         let result = validate_references_numeric(&conn, "{{p:ghost}} + 1");
-        assert!(result.is_err(), "formula referencing non-existent property must be rejected");
+        assert!(
+            result.is_err(),
+            "formula referencing non-existent property must be rejected"
+        );
     }
 
     #[test]
     fn test_validate_references_numeric_accepts_no_references() {
         let conn = setup_test_db();
         let result = validate_references_numeric(&conn, "42 + 8");
-        assert!(result.is_ok(), "formula with no references must always pass");
+        assert!(
+            result.is_ok(),
+            "formula with no references must always pass"
+        );
     }
 }

@@ -1,11 +1,13 @@
 mod find;
+mod records;
 
 pub use find::*;
+pub use records::*;
 
-use rusqlite::{Connection, Row, types::Value as SqlValue};
-use super::triple_type::Triple;
 use super::object_type::Object;
 use super::query_result_type::QueryResult;
+use super::triple_type::Triple;
+use rusqlite::{types::Value as SqlValue, Connection, Row};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -44,9 +46,17 @@ pub fn find_parent_by_linked_id_and_scope(
            AND t_use_id.object_value = ?1
            AND t_use_id.retracted = 0
          LIMIT 1",
-        rusqlite::params![needle, id_predicate, via_predicate, block_predicate, scope_predicate, scope_iri],
+        rusqlite::params![
+            needle,
+            id_predicate,
+            via_predicate,
+            block_predicate,
+            scope_predicate,
+            scope_iri
+        ],
         |row| row.get(0),
-    ).ok()
+    )
+    .ok()
 }
 
 /// SQL fragment that ensures the row is the latest assertion for its
@@ -60,7 +70,7 @@ pub fn get_by_entity(conn: &Connection, entity: &str) -> Result<QueryResult> {
                 object_type, object_number, object_integer, object_boolean,
                 tx, origin_id, 0 AS retracted, created_at
          FROM triples_current
-         WHERE subject = ?"
+         WHERE subject = ?",
     )?;
 
     let triples: Vec<Triple> = stmt
@@ -77,7 +87,7 @@ pub fn get_retracted_by_entity(conn: &Connection, entity: &str) -> Result<QueryR
                 tx, origin_id, retracted, created_at
          FROM triples
          WHERE subject = ? AND retracted = 1
-         ORDER BY predicate, tx DESC"
+         ORDER BY predicate, tx DESC",
     )?;
 
     let triples = stmt
@@ -92,9 +102,9 @@ pub fn get_retraction_tx(conn: &Connection, entity: &str) -> Result<Option<i64>>
         "SELECT MAX(tx) FROM triples WHERE subject = ? AND retracted = 1",
         [entity],
         |row| row.get::<_, Option<i64>>(0),
-    ).map_err(Into::into)
+    )
+    .map_err(Into::into)
 }
-
 
 /// Returns all active triples for a subject as they existed just before `before_tx`.
 /// For each (subject, predicate), returns the group at MAX(tx) where retracted=0 AND tx < before_tx.
@@ -117,7 +127,7 @@ pub fn get_last_active_by_entity_before_tx(
                  AND t2.predicate = t.predicate
                  AND t2.retracted = 0
                  AND t2.tx < ?2
-           )"
+           )",
     )?;
     let triples = stmt
         .query_map(rusqlite::params![entity, before_tx], row_to_triple)?
@@ -146,7 +156,7 @@ pub fn get_last_active_by_predicate_before_tx(
                  AND t2.predicate = ?1
                  AND t2.retracted = 0
                  AND t2.tx < ?2
-           )"
+           )",
     )?;
     let triples = stmt
         .query_map(rusqlite::params![predicate, before_tx], row_to_triple)?
@@ -517,10 +527,8 @@ pub fn get_by_entity_predicate_internal(
     predicate: &str,
     check_functional: bool,
 ) -> Result<QueryResult> {
-
     let is_functional = if check_functional {
-        crate::owl::Property::is_functional(conn, predicate)
-            .unwrap_or(false)
+        crate::owl::Property::is_functional(conn, predicate).unwrap_or(false)
     } else {
         false
     };
@@ -533,7 +541,7 @@ pub fn get_by_entity_predicate_internal(
              FROM triples
              WHERE subject = ? AND predicate = ?
              ORDER BY tx DESC
-             LIMIT 1"
+             LIMIT 1",
         )?;
 
         let triples: Vec<Triple> = stmt
@@ -548,7 +556,7 @@ pub fn get_by_entity_predicate_internal(
                     object_type, object_number, object_integer, object_boolean,
                     tx, origin_id, 0 AS retracted, created_at
              FROM triples_current
-             WHERE subject = ? AND predicate = ?"
+             WHERE subject = ? AND predicate = ?",
         )?;
 
         let triples: Vec<Triple> = stmt
@@ -577,7 +585,10 @@ pub fn get_by_predicate_object(
     } else {
         (
             "WHERE t.predicate = ?1 AND t.object = ?2 AND t.retracted = 0",
-            vec![&predicate as &dyn rusqlite::ToSql, &object as &dyn rusqlite::ToSql],
+            vec![
+                &predicate as &dyn rusqlite::ToSql,
+                &object as &dyn rusqlite::ToSql,
+            ],
         )
     };
 
@@ -727,7 +738,8 @@ pub fn get_backlinks_page(
     limit: usize,
     snapshot_tx: i64,
 ) -> Result<Vec<(String, i64)>> {
-    let base_ctes = format!("
+    let base_ctes = format!(
+        "
         WITH
         backlinks_raw AS (
             SELECT t.subject, t.tx AS last_tx
@@ -770,29 +782,43 @@ pub fn get_backlinks_page(
         FROM backlinks_raw br
         LEFT JOIN subject_class sc ON sc.subject = br.subject
         WHERE sc.source_class IS ?3
-    ");
+    "
+    );
     let rows: Vec<(String, i64)> = if let Some((cursor_tx, ref cursor_subject)) = after_cursor {
-        let sql = format!("{base_ctes}
+        let sql = format!(
+            "{base_ctes}
           AND (br.last_tx < ?4 OR (br.last_tx = ?4 AND br.subject > ?5))
           ORDER BY br.last_tx DESC, br.subject ASC
-          LIMIT ?6");
+          LIMIT ?6"
+        );
         let mut stmt = conn.prepare(&sql)?;
-        let x = stmt.query_map(
-            rusqlite::params![object, predicate, source_class, cursor_tx, cursor_subject, limit as i64],
-            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
-        )?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+        let x = stmt
+            .query_map(
+                rusqlite::params![
+                    object,
+                    predicate,
+                    source_class,
+                    cursor_tx,
+                    cursor_subject,
+                    limit as i64
+                ],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
         x
     } else {
-        let sql = format!("{base_ctes}
+        let sql = format!(
+            "{base_ctes}
           ORDER BY br.last_tx DESC, br.subject ASC
-          LIMIT ?4");
+          LIMIT ?4"
+        );
         let mut stmt = conn.prepare(&sql)?;
-        let x = stmt.query_map(
-            rusqlite::params![object, predicate, source_class, limit as i64],
-            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
-        )?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+        let x = stmt
+            .query_map(
+                rusqlite::params![object, predicate, source_class, limit as i64],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
         x
     };
     Ok(rows)
@@ -835,7 +861,11 @@ pub fn get_property_values_grouped_limited(
     let excl_phs = if excluded_predicates.is_empty() {
         String::new()
     } else {
-        let phs = excluded_predicates.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let phs = excluded_predicates
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(", ");
         format!("AND t.predicate NOT IN ({phs})")
     };
 
@@ -884,7 +914,8 @@ pub fn get_property_values_grouped_limited(
          ORDER BY value_tx DESC, COALESCE(object, object_value) ASC"
     );
 
-    let mut params: Vec<rusqlite::types::Value> = vec![rusqlite::types::Value::Text(subject.to_string())];
+    let mut params: Vec<rusqlite::types::Value> =
+        vec![rusqlite::types::Value::Text(subject.to_string())];
     for p in excluded_predicates {
         params.push(rusqlite::types::Value::Text(p.to_string()));
     }
@@ -932,7 +963,8 @@ pub fn get_property_values_page(
     limit: usize,
     snapshot_tx: i64,
 ) -> Result<Vec<PropertyValueRow>> {
-    let base_cte = format!("
+    let base_cte = format!(
+        "
         WITH vals_raw AS (
             SELECT t.object,
                    t.object_value,
@@ -956,48 +988,56 @@ pub fn get_property_values_page(
         )
         SELECT object, object_value, object_datatype, object_type, object_language, value_tx
         FROM vals_raw
-    ");
+    "
+    );
 
     let rows: Vec<PropertyValueRow> = if let Some((cursor_tx, ref cursor_obj_key)) = after_cursor {
-        let sql = format!("{base_cte}
+        let sql = format!(
+            "{base_cte}
           WHERE (value_tx < ?3 OR (value_tx = ?3 AND COALESCE(object, object_value) > ?4))
           ORDER BY value_tx DESC, COALESCE(object, object_value) ASC
-          LIMIT ?5");
+          LIMIT ?5"
+        );
         let mut stmt = conn.prepare(&sql)?;
-        let x = stmt.query_map(
-            rusqlite::params![subject, predicate, cursor_tx, cursor_obj_key, limit as i64],
-            |row| Ok(PropertyValueRow {
-                predicate: predicate.to_string(),
-                object: row.get(0)?,
-                object_value: row.get(1)?,
-                object_datatype: row.get(2)?,
-                object_type: row.get::<_, String>(3)?,
-                object_language: row.get(4)?,
-                value_tx: row.get(5)?,
-                group_total: 0,
-            }),
-        )?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+        let x = stmt
+            .query_map(
+                rusqlite::params![subject, predicate, cursor_tx, cursor_obj_key, limit as i64],
+                |row| {
+                    Ok(PropertyValueRow {
+                        predicate: predicate.to_string(),
+                        object: row.get(0)?,
+                        object_value: row.get(1)?,
+                        object_datatype: row.get(2)?,
+                        object_type: row.get::<_, String>(3)?,
+                        object_language: row.get(4)?,
+                        value_tx: row.get(5)?,
+                        group_total: 0,
+                    })
+                },
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
         x
     } else {
-        let sql = format!("{base_cte}
+        let sql = format!(
+            "{base_cte}
           ORDER BY value_tx DESC, COALESCE(object, object_value) ASC
-          LIMIT ?3");
+          LIMIT ?3"
+        );
         let mut stmt = conn.prepare(&sql)?;
-        let x = stmt.query_map(
-            rusqlite::params![subject, predicate, limit as i64],
-            |row| Ok(PropertyValueRow {
-                predicate: predicate.to_string(),
-                object: row.get(0)?,
-                object_value: row.get(1)?,
-                object_datatype: row.get(2)?,
-                object_type: row.get::<_, String>(3)?,
-                object_language: row.get(4)?,
-                value_tx: row.get(5)?,
-                group_total: 0,
-            }),
-        )?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+        let x = stmt
+            .query_map(rusqlite::params![subject, predicate, limit as i64], |row| {
+                Ok(PropertyValueRow {
+                    predicate: predicate.to_string(),
+                    object: row.get(0)?,
+                    object_value: row.get(1)?,
+                    object_datatype: row.get(2)?,
+                    object_type: row.get::<_, String>(3)?,
+                    object_language: row.get(4)?,
+                    value_tx: row.get(5)?,
+                    group_total: 0,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
         x
     };
     Ok(rows)
@@ -1012,7 +1052,11 @@ pub fn get_predicates_for_subjects(
         return Ok(Vec::new());
     }
     let subject_phs = subjects.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-    let predicate_phs = predicates.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let predicate_phs = predicates
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(", ");
     let sql = format!(
         "SELECT subject, predicate, object, object_value, object_datatype, object_language,
                 object_type, object_number, object_integer, object_boolean,
@@ -1023,15 +1067,16 @@ pub fn get_predicates_for_subjects(
          ORDER BY t.subject, t.predicate, t.tx DESC",
         subject_phs, predicate_phs, AND_IS_CURRENT
     );
-    let mut params: Vec<SqlValue> = subjects.iter()
-        .map(|s| SqlValue::Text(s.clone()))
-        .collect();
+    let mut params: Vec<SqlValue> = subjects.iter().map(|s| SqlValue::Text(s.clone())).collect();
     params.extend(predicates.iter().map(|p| SqlValue::Text(p.to_string())));
     let mut stmt = conn.prepare(&sql)?;
     let triples = stmt
         .query_map(rusqlite::params_from_iter(params.iter()), row_to_triple)?
         .collect::<std::result::Result<Vec<_>, _>>()?;
-    Ok(triples.into_iter().map(|t| (t.subject, t.predicate, t.object)).collect())
+    Ok(triples
+        .into_iter()
+        .map(|t| (t.subject, t.predicate, t.object))
+        .collect())
 }
 
 pub fn get_first_iri_property_batch(
@@ -1051,9 +1096,7 @@ pub fn get_first_iri_property_batch(
          ORDER BY t.subject, t.tx DESC",
         placeholders, AND_IS_CURRENT
     );
-    let mut params: Vec<SqlValue> = subjects.iter()
-        .map(|s| SqlValue::Text(s.clone()))
-        .collect();
+    let mut params: Vec<SqlValue> = subjects.iter().map(|s| SqlValue::Text(s.clone())).collect();
     params.push(SqlValue::Text(predicate.to_string()));
     let mut stmt = conn.prepare(&sql)?;
     let mut map = std::collections::HashMap::new();
@@ -1077,7 +1120,7 @@ pub fn get_at_time(conn: &Connection, entity: &str, tx: i64) -> Result<QueryResu
                 tx, origin_id, retracted, created_at
          FROM triples
          WHERE subject = ? AND tx <= ? AND retracted = 0
-         ORDER BY predicate, tx DESC"
+         ORDER BY predicate, tx DESC",
     )?;
 
     let triples = stmt
@@ -1101,7 +1144,7 @@ pub fn get_by_origin(conn: &Connection, origin_id: i64) -> Result<QueryResult> {
                 tx, origin_id, retracted, created_at
          FROM triples
          WHERE origin_id = ? AND retracted = 0
-         ORDER BY tx DESC"
+         ORDER BY tx DESC",
     )?;
 
     let triples = stmt
@@ -1119,7 +1162,7 @@ pub fn get_history(conn: &Connection, entity: &str) -> Result<Vec<(i64, Vec<Trip
                 tx, origin_id, retracted, created_at
          FROM triples
          WHERE subject = ?
-         ORDER BY tx ASC"
+         ORDER BY tx ASC",
     )?;
 
     let all_triples: Vec<Triple> = stmt
@@ -1128,7 +1171,10 @@ pub fn get_history(conn: &Connection, entity: &str) -> Result<Vec<(i64, Vec<Trip
 
     let mut history: std::collections::HashMap<i64, Vec<Triple>> = std::collections::HashMap::new();
     for triple in all_triples {
-        history.entry(triple.tx).or_insert_with(Vec::new).push(triple);
+        history
+            .entry(triple.tx)
+            .or_insert_with(Vec::new)
+            .push(triple);
     }
 
     let mut result: Vec<(i64, Vec<Triple>)> = history.into_iter().collect();
@@ -1205,10 +1251,15 @@ pub fn batch_load_triples_for_subjects(
     }
     let elapsed = t0.elapsed().as_millis();
     if elapsed > 10 || subjects.len() > 50 {
-        crate::diagnostics::log_backend("debug", &format!(
-            "[EAVTO] batch_load({} subjects, chunked) → {} triples {}ms",
-            subjects.len(), map.len(), elapsed
-        ));
+        crate::diagnostics::log_backend(
+            "debug",
+            &format!(
+                "[EAVTO] batch_load({} subjects, chunked) → {} triples {}ms",
+                subjects.len(),
+                map.len(),
+                elapsed
+            ),
+        );
     }
     Ok(map)
 }
@@ -1248,10 +1299,15 @@ fn batch_load_triples_chunk(
     }
     let elapsed = t0.elapsed().as_millis();
     if elapsed > 10 || subjects.len() > 50 {
-        crate::diagnostics::log_backend("debug", &format!(
-            "[EAVTO] batch_load({} subjects) → {} triples {}ms",
-            subjects.len(), map.len(), elapsed
-        ));
+        crate::diagnostics::log_backend(
+            "debug",
+            &format!(
+                "[EAVTO] batch_load({} subjects) → {} triples {}ms",
+                subjects.len(),
+                map.len(),
+                elapsed
+            ),
+        );
     }
     Ok(map)
 }
@@ -1344,8 +1400,8 @@ pub(crate) fn row_to_triple(row: &Row) -> rusqlite::Result<Triple> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::eavto::test_helpers::{setup_test_db, create_test_triples};
     use crate::eavto::store::assert_triples;
+    use crate::eavto::test_helpers::{create_test_triples, setup_test_db};
 
     fn setup_test_data(conn: &mut Connection) -> i64 {
         let triples = create_test_triples();
@@ -1427,7 +1483,9 @@ mod tests {
 
         assert_eq!(result.triples.len(), 2);
 
-        let label_triple = result.triples.iter()
+        let label_triple = result
+            .triples
+            .iter()
             .find(|t| t.predicate == "rdfs:label")
             .expect("Should have label");
 
@@ -1481,7 +1539,9 @@ mod tests {
         setup_test_data(&mut conn);
 
         let result = get_by_entity(&conn, "foundation:TestClass").unwrap();
-        let iri_triple = result.triples.iter()
+        let iri_triple = result
+            .triples
+            .iter()
             .find(|t| t.predicate == "rdf:type")
             .expect("Should have rdf:type");
 
@@ -1497,7 +1557,9 @@ mod tests {
         setup_test_data(&mut conn);
 
         let result = get_by_entity(&conn, "foundation:TestProperty").unwrap();
-        let int_triple = result.triples.iter()
+        let int_triple = result
+            .triples
+            .iter()
             .find(|t| t.predicate == "foundation:someValue")
             .expect("Should have foundation:someValue");
 
@@ -1511,25 +1573,76 @@ mod tests {
     fn test_find_by_class_iris_and_properties_returns_subclass_instances() {
         let mut conn = setup_test_db();
 
-        assert_triples(&mut conn, &[
-            Triple { subject: "foundation:Animal".to_string(), predicate: "rdf:type".to_string(),
-                object: Object::Iri("owl:Class".to_string()), tx: 0, created_at: 0, origin_id: 1, retracted: false },
-        ], "test").unwrap();
+        assert_triples(
+            &mut conn,
+            &[Triple {
+                subject: "foundation:Animal".to_string(),
+                predicate: "rdf:type".to_string(),
+                object: Object::Iri("owl:Class".to_string()),
+                tx: 0,
+                created_at: 0,
+                origin_id: 1,
+                retracted: false,
+            }],
+            "test",
+        )
+        .unwrap();
 
-        assert_triples(&mut conn, &[
-            Triple { subject: "foundation:Dog".to_string(), predicate: "rdf:type".to_string(),
-                object: Object::Iri("owl:Class".to_string()), tx: 0, created_at: 0, origin_id: 1, retracted: false },
-            Triple { subject: "foundation:Dog".to_string(), predicate: "rdfs:subClassOf".to_string(),
-                object: Object::Iri("foundation:Animal".to_string()), tx: 0, created_at: 0, origin_id: 1, retracted: false },
-        ], "test").unwrap();
+        assert_triples(
+            &mut conn,
+            &[
+                Triple {
+                    subject: "foundation:Dog".to_string(),
+                    predicate: "rdf:type".to_string(),
+                    object: Object::Iri("owl:Class".to_string()),
+                    tx: 0,
+                    created_at: 0,
+                    origin_id: 1,
+                    retracted: false,
+                },
+                Triple {
+                    subject: "foundation:Dog".to_string(),
+                    predicate: "rdfs:subClassOf".to_string(),
+                    object: Object::Iri("foundation:Animal".to_string()),
+                    tx: 0,
+                    created_at: 0,
+                    origin_id: 1,
+                    retracted: false,
+                },
+            ],
+            "test",
+        )
+        .unwrap();
 
-        assert_triples(&mut conn, &[
-            Triple { subject: "foundation:Rex".to_string(), predicate: "rdf:type".to_string(),
-                object: Object::Iri("foundation:Dog".to_string()), tx: 0, created_at: 0, origin_id: 1, retracted: false },
-            Triple { subject: "foundation:Rex".to_string(), predicate: "foundation:name".to_string(),
-                object: Object::Literal { value: "Rex".to_string(), datatype: Some("xsd:string".to_string()), language: None },
-                tx: 0, created_at: 0, origin_id: 1, retracted: false },
-        ], "test").unwrap();
+        assert_triples(
+            &mut conn,
+            &[
+                Triple {
+                    subject: "foundation:Rex".to_string(),
+                    predicate: "rdf:type".to_string(),
+                    object: Object::Iri("foundation:Dog".to_string()),
+                    tx: 0,
+                    created_at: 0,
+                    origin_id: 1,
+                    retracted: false,
+                },
+                Triple {
+                    subject: "foundation:Rex".to_string(),
+                    predicate: "foundation:name".to_string(),
+                    object: Object::Literal {
+                        value: "Rex".to_string(),
+                        datatype: Some("xsd:string".to_string()),
+                        language: None,
+                    },
+                    tx: 0,
+                    created_at: 0,
+                    origin_id: 1,
+                    retracted: false,
+                },
+            ],
+            "test",
+        )
+        .unwrap();
 
         let (results, total) = find_by_class_iris_and_properties_with_options(
             &conn,
@@ -1539,7 +1652,8 @@ mod tests {
             100,
             0,
             None,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(total, 1);
         assert!(results.contains(&"foundation:Rex".to_string()));
@@ -1558,7 +1672,8 @@ mod tests {
             100,
             0,
             None,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(total, 1);
         assert!(results.contains(&"foundation:TestClass".to_string()));
@@ -1568,23 +1683,79 @@ mod tests {
     fn test_find_by_properties_without_class_constraint() {
         let mut conn = setup_test_db();
 
-        assert_triples(&mut conn, &[
-            Triple { subject: "foundation:PersonA".to_string(), predicate: "rdf:type".to_string(),
-                object: Object::Iri("foundation:Person".to_string()), tx: 0, created_at: 0, origin_id: 1, retracted: false },
-            Triple { subject: "foundation:PersonA".to_string(), predicate: "foundation:status".to_string(),
-                object: Object::Literal { value: "active".to_string(), datatype: Some("xsd:string".to_string()), language: None },
-                tx: 0, created_at: 0, origin_id: 1, retracted: false },
-            Triple { subject: "foundation:CompanyX".to_string(), predicate: "rdf:type".to_string(),
-                object: Object::Iri("foundation:Company".to_string()), tx: 0, created_at: 0, origin_id: 1, retracted: false },
-            Triple { subject: "foundation:CompanyX".to_string(), predicate: "foundation:status".to_string(),
-                object: Object::Literal { value: "active".to_string(), datatype: Some("xsd:string".to_string()), language: None },
-                tx: 0, created_at: 0, origin_id: 1, retracted: false },
-            Triple { subject: "foundation:PersonB".to_string(), predicate: "rdf:type".to_string(),
-                object: Object::Iri("foundation:Person".to_string()), tx: 0, created_at: 0, origin_id: 1, retracted: false },
-            Triple { subject: "foundation:PersonB".to_string(), predicate: "foundation:status".to_string(),
-                object: Object::Literal { value: "inactive".to_string(), datatype: Some("xsd:string".to_string()), language: None },
-                tx: 0, created_at: 0, origin_id: 1, retracted: false },
-        ], "test").unwrap();
+        assert_triples(
+            &mut conn,
+            &[
+                Triple {
+                    subject: "foundation:PersonA".to_string(),
+                    predicate: "rdf:type".to_string(),
+                    object: Object::Iri("foundation:Person".to_string()),
+                    tx: 0,
+                    created_at: 0,
+                    origin_id: 1,
+                    retracted: false,
+                },
+                Triple {
+                    subject: "foundation:PersonA".to_string(),
+                    predicate: "foundation:status".to_string(),
+                    object: Object::Literal {
+                        value: "active".to_string(),
+                        datatype: Some("xsd:string".to_string()),
+                        language: None,
+                    },
+                    tx: 0,
+                    created_at: 0,
+                    origin_id: 1,
+                    retracted: false,
+                },
+                Triple {
+                    subject: "foundation:CompanyX".to_string(),
+                    predicate: "rdf:type".to_string(),
+                    object: Object::Iri("foundation:Company".to_string()),
+                    tx: 0,
+                    created_at: 0,
+                    origin_id: 1,
+                    retracted: false,
+                },
+                Triple {
+                    subject: "foundation:CompanyX".to_string(),
+                    predicate: "foundation:status".to_string(),
+                    object: Object::Literal {
+                        value: "active".to_string(),
+                        datatype: Some("xsd:string".to_string()),
+                        language: None,
+                    },
+                    tx: 0,
+                    created_at: 0,
+                    origin_id: 1,
+                    retracted: false,
+                },
+                Triple {
+                    subject: "foundation:PersonB".to_string(),
+                    predicate: "rdf:type".to_string(),
+                    object: Object::Iri("foundation:Person".to_string()),
+                    tx: 0,
+                    created_at: 0,
+                    origin_id: 1,
+                    retracted: false,
+                },
+                Triple {
+                    subject: "foundation:PersonB".to_string(),
+                    predicate: "foundation:status".to_string(),
+                    object: Object::Literal {
+                        value: "inactive".to_string(),
+                        datatype: Some("xsd:string".to_string()),
+                        language: None,
+                    },
+                    tx: 0,
+                    created_at: 0,
+                    origin_id: 1,
+                    retracted: false,
+                },
+            ],
+            "test",
+        )
+        .unwrap();
 
         let (results, total) = find_by_properties_with_options(
             &conn,
@@ -1592,9 +1763,13 @@ mod tests {
             false,
             100,
             0,
-        ).unwrap();
+        )
+        .unwrap();
 
-        assert_eq!(total, 2, "should find both active entities regardless of class");
+        assert_eq!(
+            total, 2,
+            "should find both active entities regardless of class"
+        );
         assert!(results.contains(&"foundation:PersonA".to_string()));
         assert!(results.contains(&"foundation:CompanyX".to_string()));
         assert!(!results.contains(&"foundation:PersonB".to_string()));
@@ -1673,7 +1848,17 @@ mod page_as_of_tests {
         // (c) retract a member after snapshot
         retract(&conn, "ex:C", "ex:member", "ex:Set", t2);
 
-        let page = page_as_of(&conn, "ex:member", "ex:Set", snapshot_tx, "ex:rank", 100, None, None).unwrap();
+        let page = page_as_of(
+            &conn,
+            "ex:member",
+            "ex:Set",
+            snapshot_tx,
+            "ex:rank",
+            100,
+            None,
+            None,
+        )
+        .unwrap();
         let subjects: Vec<&str> = page.iter().map(|r| r.subject.as_str()).collect();
 
         // Snapshot must return exactly A, B, C (D absent, C present, A uses rank tx=t1 not t2)
@@ -1681,10 +1866,16 @@ mod page_as_of_tests {
         assert!(subjects.contains(&"ex:A"), "ex:A must be present");
         assert!(subjects.contains(&"ex:B"), "ex:B must be present");
         assert!(subjects.contains(&"ex:C"), "ex:C must be present");
-        assert!(!subjects.contains(&"ex:D"), "ex:D added after snapshot must be absent");
+        assert!(
+            !subjects.contains(&"ex:D"),
+            "ex:D added after snapshot must be absent"
+        );
 
         // All three order keys were written at t1 → same order_tx; tie-break by subject ASC
-        assert!(page.iter().all(|r| r.order_tx == Some(t1)), "all order_tx must be t1 as-of snapshot");
+        assert!(
+            page.iter().all(|r| r.order_tx == Some(t1)),
+            "all order_tx must be t1 as-of snapshot"
+        );
         assert_eq!(page[0].subject, "ex:A");
         assert_eq!(page[1].subject, "ex:B");
         assert_eq!(page[2].subject, "ex:C");
@@ -1703,13 +1894,28 @@ mod page_as_of_tests {
         retract(&conn, "ex:M", "ex:member", "ex:Set", t_retract);
 
         // snapshot < retraction tx → member present
-        let before = page_as_of(&conn, "ex:member", "ex:Set", t1, "ex:rank", 100, None, None).unwrap();
+        let before =
+            page_as_of(&conn, "ex:member", "ex:Set", t1, "ex:rank", 100, None, None).unwrap();
         assert_eq!(before.len(), 1, "member must be present before retraction");
         assert_eq!(before[0].subject, "ex:M");
 
         // snapshot >= retraction tx → member absent
-        let after = page_as_of(&conn, "ex:member", "ex:Set", t_retract, "ex:rank", 100, None, None).unwrap();
-        assert_eq!(after.len(), 0, "member must be absent at or after retraction tx");
+        let after = page_as_of(
+            &conn,
+            "ex:member",
+            "ex:Set",
+            t_retract,
+            "ex:rank",
+            100,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            after.len(),
+            0,
+            "member must be absent at or after retraction tx"
+        );
     }
 
     // AC3 — Chave de ordenação as-of vs atual: order_tx deve ser o tx da assertiva vencedora ≤ snapshot
@@ -1726,7 +1932,17 @@ mod page_as_of_tests {
         let t2 = insert_tx(&conn);
         insert_literal(&conn, "ex:X", "ex:rank", "zeta", t2); // updated after snapshot
 
-        let page = page_as_of(&conn, "ex:member", "ex:Set", snapshot_tx, "ex:rank", 100, None, None).unwrap();
+        let page = page_as_of(
+            &conn,
+            "ex:member",
+            "ex:Set",
+            snapshot_tx,
+            "ex:rank",
+            100,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(page.len(), 1);
         assert_eq!(
             page[0].order_tx,
@@ -1746,14 +1962,25 @@ mod page_as_of_tests {
         insert_iri(&conn, "ex:NoKey2", "ex:member", "ex:Set", t1);
         insert_literal(&conn, "ex:HasKey", "ex:rank", "beta", t1);
 
-        let page = page_as_of(&conn, "ex:member", "ex:Set", t1, "ex:rank", 100, None, None).unwrap();
+        let page =
+            page_as_of(&conn, "ex:member", "ex:Set", t1, "ex:rank", 100, None, None).unwrap();
         assert_eq!(page.len(), 3);
-        assert_eq!(page[0].subject, "ex:HasKey", "keyed subject must come first");
-        assert_eq!(page[0].order_tx, Some(t1), "keyed subject must have order_tx");
+        assert_eq!(
+            page[0].subject, "ex:HasKey",
+            "keyed subject must come first"
+        );
+        assert_eq!(
+            page[0].order_tx,
+            Some(t1),
+            "keyed subject must have order_tx"
+        );
         // No-key subjects last, ordered by subject ASC
         assert!(page[1].order_tx.is_none());
         assert!(page[2].order_tx.is_none());
-        assert!(page[1].subject < page[2].subject, "tie-break must be subject ASC");
+        assert!(
+            page[1].subject < page[2].subject,
+            "tie-break must be subject ASC"
+        );
     }
 
     // AC5 — Duplo filtro de membership: sujeito deve satisfazer AMBOS os pares as-of
@@ -1763,8 +1990,8 @@ mod page_as_of_tests {
 
         let t1 = insert_tx(&conn);
         // ex:Both satisfies primary (ex:type = ex:Conv) AND secondary (ex:participant = ex:User)
-        insert_iri(&conn, "ex:Both",    "ex:type",        "ex:Conv", t1);
-        insert_iri(&conn, "ex:Both",    "ex:participant", "ex:User", t1);
+        insert_iri(&conn, "ex:Both", "ex:type", "ex:Conv", t1);
+        insert_iri(&conn, "ex:Both", "ex:participant", "ex:User", t1);
         insert_literal(&conn, "ex:Both", "ex:rank", "10", t1);
 
         // ex:OnlyType satisfies primary but NOT secondary
@@ -1780,26 +2007,40 @@ mod page_as_of_tests {
         // Verify: with extra filter, only ex:Both appears
         let page = page_as_of(
             &conn,
-            "ex:type", "ex:Conv",
+            "ex:type",
+            "ex:Conv",
             snapshot_tx,
             "ex:rank",
-            100, None,
+            100,
+            None,
             Some(("ex:participant", "ex:User")),
-        ).unwrap();
+        )
+        .unwrap();
 
-        assert_eq!(page.len(), 1, "only the subject satisfying both predicates must appear");
+        assert_eq!(
+            page.len(),
+            1,
+            "only the subject satisfying both predicates must appear"
+        );
         assert_eq!(page[0].subject, "ex:Both");
 
         // Verify without extra filter: both ex:Both and ex:OnlyType appear
         let page_no_extra = page_as_of(
             &conn,
-            "ex:type", "ex:Conv",
+            "ex:type",
+            "ex:Conv",
             snapshot_tx,
             "ex:rank",
-            100, None,
+            100,
             None,
-        ).unwrap();
-        assert_eq!(page_no_extra.len(), 2, "without extra filter both type members appear");
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            page_no_extra.len(),
+            2,
+            "without extra filter both type members appear"
+        );
 
         // Verify as-of semantics of the secondary filter:
         // retract ex:Both's participant at t2 — at snapshot t1 it was present, at t2 it is absent.
@@ -1808,28 +2049,36 @@ mod page_as_of_tests {
 
         let page_after_retract = page_as_of(
             &conn,
-            "ex:type", "ex:Conv",
+            "ex:type",
+            "ex:Conv",
             t2,
             "ex:rank",
-            100, None,
+            100,
+            None,
             Some(("ex:participant", "ex:User")),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(
-            page_after_retract.len(), 0,
+            page_after_retract.len(),
+            0,
             "after secondary membership retraction the subject must not appear"
         );
 
         // but at snapshot_tx (t1) it is still present
         let page_at_snapshot = page_as_of(
             &conn,
-            "ex:type", "ex:Conv",
+            "ex:type",
+            "ex:Conv",
             snapshot_tx,
             "ex:rank",
-            100, None,
+            100,
+            None,
             Some(("ex:participant", "ex:User")),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(
-            page_at_snapshot.len(), 1,
+            page_at_snapshot.len(),
+            1,
             "at the earlier snapshot the secondary membership was active"
         );
     }
@@ -1853,22 +2102,53 @@ mod page_as_of_tests {
         let snapshot_tx = tkeys.last().unwrap().1;
 
         // Page 0: first 2 rows
-        let page0 = page_as_of(&conn, "ex:member", "ex:Set", snapshot_tx, "ex:rank", 2, None, None).unwrap();
+        let page0 = page_as_of(
+            &conn,
+            "ex:member",
+            "ex:Set",
+            snapshot_tx,
+            "ex:rank",
+            2,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(page0.len(), 2);
         let last0 = page0.last().unwrap();
         let cursor0: (Option<i64>, &str) = (last0.order_tx, &last0.subject);
 
         // Page 1: next 2 rows using composite keyset cursor
-        let page1 = page_as_of(&conn, "ex:member", "ex:Set", snapshot_tx, "ex:rank", 2, Some(cursor0), None).unwrap();
+        let page1 = page_as_of(
+            &conn,
+            "ex:member",
+            "ex:Set",
+            snapshot_tx,
+            "ex:rank",
+            2,
+            Some(cursor0),
+            None,
+        )
+        .unwrap();
         assert_eq!(page1.len(), 2);
         let last1 = page1.last().unwrap();
         let cursor1: (Option<i64>, &str) = (last1.order_tx, &last1.subject);
 
         // Page 2: last row
-        let page2 = page_as_of(&conn, "ex:member", "ex:Set", snapshot_tx, "ex:rank", 2, Some(cursor1), None).unwrap();
+        let page2 = page_as_of(
+            &conn,
+            "ex:member",
+            "ex:Set",
+            snapshot_tx,
+            "ex:rank",
+            2,
+            Some(cursor1),
+            None,
+        )
+        .unwrap();
         assert_eq!(page2.len(), 1);
 
-        let combined: Vec<String> = page0.iter()
+        let combined: Vec<String> = page0
+            .iter()
             .chain(page1.iter())
             .chain(page2.iter())
             .map(|r| r.subject.clone())
@@ -1881,13 +2161,17 @@ mod page_as_of_tests {
         assert_eq!(unique.len(), 5, "no duplicates across pages");
 
         // Verify strict descending order by order_tx across all pages
-        let all_txs: Vec<i64> = page0.iter()
+        let all_txs: Vec<i64> = page0
+            .iter()
             .chain(page1.iter())
             .chain(page2.iter())
             .map(|r| r.order_tx.unwrap())
             .collect();
         for w in all_txs.windows(2) {
-            assert!(w[0] > w[1], "order_tx must be strictly descending across pages");
+            assert!(
+                w[0] > w[1],
+                "order_tx must be strictly descending across pages"
+            );
         }
     }
 
@@ -1909,7 +2193,17 @@ mod page_as_of_tests {
         let snapshot_tx = last_tk;
 
         // Fetch first page (2 rows)
-        let page0 = page_as_of(&conn, "ex:member", "ex:Set", snapshot_tx, "ex:rank", 2, None, None).unwrap();
+        let page0 = page_as_of(
+            &conn,
+            "ex:member",
+            "ex:Set",
+            snapshot_tx,
+            "ex:rank",
+            2,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(page0.len(), 2);
         let last = page0.last().unwrap();
         let cursor = (last.order_tx, last.subject.as_str());
@@ -1920,13 +2214,27 @@ mod page_as_of_tests {
         insert_literal(&conn, "ex:NEW", "ex:rank", "999", t_new);
 
         // Fetch second page with the same snapshot_tx
-        let page1 = page_as_of(&conn, "ex:member", "ex:Set", snapshot_tx, "ex:rank", 2, Some(cursor), None).unwrap();
+        let page1 = page_as_of(
+            &conn,
+            "ex:member",
+            "ex:Set",
+            snapshot_tx,
+            "ex:rank",
+            2,
+            Some(cursor),
+            None,
+        )
+        .unwrap();
 
-        let all_subjects: Vec<&str> = page0.iter()
+        let all_subjects: Vec<&str> = page0
+            .iter()
             .chain(page1.iter())
             .map(|r| r.subject.as_str())
             .collect();
-        assert!(!all_subjects.contains(&"ex:NEW"), "post-snapshot subject must not appear in any page");
+        assert!(
+            !all_subjects.contains(&"ex:NEW"),
+            "post-snapshot subject must not appear in any page"
+        );
         assert_eq!(all_subjects.len(), 4, "exactly the 4 pre-snapshot subjects");
 
         let mut unique = all_subjects.clone();
@@ -1965,8 +2273,16 @@ mod page_as_of_tests {
         loop {
             let after = cursor.as_ref().map(|(tx, s)| (*tx, s.as_str()));
             let page = page_as_of(
-                &conn, "ex:member", "ex:Set", snapshot_tx, "ex:rank", 2, after, None,
-            ).unwrap();
+                &conn,
+                "ex:member",
+                "ex:Set",
+                snapshot_tx,
+                "ex:rank",
+                2,
+                after,
+                None,
+            )
+            .unwrap();
             let fetched = page.len();
             for r in &page {
                 all_subjects.push(r.subject.clone());
@@ -1986,18 +2302,22 @@ mod page_as_of_tests {
         assert_eq!(unique.len(), 6, "no duplicates");
 
         // The two keyed subjects must come before the four unkeyed ones.
-        let keyed_positions: Vec<usize> = all_subjects.iter()
+        let keyed_positions: Vec<usize> = all_subjects
+            .iter()
             .enumerate()
             .filter(|(_, s)| s.starts_with("ex:Keyed"))
             .map(|(i, _)| i)
             .collect();
-        let null_positions: Vec<usize> = all_subjects.iter()
+        let null_positions: Vec<usize> = all_subjects
+            .iter()
             .enumerate()
             .filter(|(_, s)| s.starts_with("ex:Null"))
             .map(|(i, _)| i)
             .collect();
         assert!(
-            keyed_positions.iter().all(|k| null_positions.iter().all(|n| k < n)),
+            keyed_positions
+                .iter()
+                .all(|k| null_positions.iter().all(|n| k < n)),
             "keyed subjects must appear before all null-keyed subjects"
         );
     }
@@ -2023,27 +2343,56 @@ mod page_as_of_tests {
 
         // With limit=2 the first page cuts in the middle of the tied group.
         let page0 = page_as_of(
-            &conn, "ex:member", "ex:Set", snapshot_tx, "ex:rank", 2, None, None,
-        ).unwrap();
+            &conn,
+            "ex:member",
+            "ex:Set",
+            snapshot_tx,
+            "ex:rank",
+            2,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(page0.len(), 2, "first page must have 2 rows");
 
         let last0 = page0.last().unwrap();
         let cursor0 = (last0.order_tx, last0.subject.as_str());
 
         let page1 = page_as_of(
-            &conn, "ex:member", "ex:Set", snapshot_tx, "ex:rank", 2, Some(cursor0), None,
-        ).unwrap();
-        assert_eq!(page1.len(), 2, "second page must have 2 rows (no gap in tied group)");
+            &conn,
+            "ex:member",
+            "ex:Set",
+            snapshot_tx,
+            "ex:rank",
+            2,
+            Some(cursor0),
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            page1.len(),
+            2,
+            "second page must have 2 rows (no gap in tied group)"
+        );
 
         let last1 = page1.last().unwrap();
         let cursor1 = (last1.order_tx, last1.subject.as_str());
 
         let page2 = page_as_of(
-            &conn, "ex:member", "ex:Set", snapshot_tx, "ex:rank", 2, Some(cursor1), None,
-        ).unwrap();
+            &conn,
+            "ex:member",
+            "ex:Set",
+            snapshot_tx,
+            "ex:rank",
+            2,
+            Some(cursor1),
+            None,
+        )
+        .unwrap();
         assert_eq!(page2.len(), 1, "third page must have 1 remaining row");
 
-        let combined: Vec<String> = page0.iter()
+        let combined: Vec<String> = page0
+            .iter()
             .chain(page1.iter())
             .chain(page2.iter())
             .map(|r| r.subject.clone())
@@ -2056,21 +2405,29 @@ mod page_as_of_tests {
         assert_eq!(unique.len(), 5, "no duplicates in tied group pagination");
 
         // All rows share the same order_tx.
-        let all_txs: Vec<Option<i64>> = page0.iter()
+        let all_txs: Vec<Option<i64>> = page0
+            .iter()
             .chain(page1.iter())
             .chain(page2.iter())
             .map(|r| r.order_tx)
             .collect();
-        assert!(all_txs.iter().all(|tx| *tx == Some(t_key)), "all rows must share the same order_tx");
+        assert!(
+            all_txs.iter().all(|tx| *tx == Some(t_key)),
+            "all rows must share the same order_tx"
+        );
 
         // Within the tied group the order must be subject ASC across pages.
-        let subjects_in_order: Vec<String> = page0.iter()
+        let subjects_in_order: Vec<String> = page0
+            .iter()
             .chain(page1.iter())
             .chain(page2.iter())
             .map(|r| r.subject.clone())
             .collect();
         for w in subjects_in_order.windows(2) {
-            assert!(w[0] < w[1], "tied subjects must be ordered by subject ASC across pages");
+            assert!(
+                w[0] < w[1],
+                "tied subjects must be ordered by subject ASC across pages"
+            );
         }
     }
 }
@@ -2173,7 +2530,11 @@ mod backlinks_grouped_tests {
         let rows = get_backlinks_grouped_limited(&conn, "ex:Target", 15).unwrap();
         let page1_subjects: Vec<String> = rows.iter().map(|r| r.subject.clone()).collect();
 
-        assert_eq!(page1_subjects.len(), 15, "page-1 must contain exactly 15 items");
+        assert_eq!(
+            page1_subjects.len(),
+            15,
+            "page-1 must contain exactly 15 items"
+        );
         assert_eq!(
             page1_subjects,
             expected_order[..15].to_vec(),
@@ -2232,11 +2593,18 @@ mod backlinks_grouped_tests {
         }
 
         // Union must cover all 17 subjects.
-        let mut union: Vec<String> = page1_subjects.iter().chain(page2_subjects.iter()).cloned().collect();
+        let mut union: Vec<String> = page1_subjects
+            .iter()
+            .chain(page2_subjects.iter())
+            .cloned()
+            .collect();
         union.sort();
         let mut expected_sorted = expected_order.clone();
         expected_sorted.sort();
-        assert_eq!(union, expected_sorted, "union must contain all 17 subjects without gap");
+        assert_eq!(
+            union, expected_sorted,
+            "union must contain all 17 subjects without gap"
+        );
     }
 
     /// Assert C: concatenated order (page-1 followed by page-2) is monotonic in

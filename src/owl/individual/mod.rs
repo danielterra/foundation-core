@@ -1,32 +1,37 @@
 use crate::eavto::Connection;
-use crate::eavto::{store, query, Triple, Object};
-use crate::owl::{Result, OwlError, Thing, Class, vocabulary::{rdf, rdfs}};
+use crate::eavto::{query, store, Object, Triple};
+use crate::owl::{
+    vocabulary::{rdf, rdfs},
+    Class, OwlError, Result, Thing,
+};
 
 mod core;
-mod validation;
-mod write;
 mod find;
-mod properties;
 mod lock;
-mod timestamps;
 mod materialize;
 mod models;
+mod properties;
+mod records;
 pub mod status;
+mod timestamps;
+mod validation;
+mod write;
 
-pub use timestamps::{touch, LAST_UPDATED_AT};
 pub use materialize::{materialize_individual_shallow, ShallowValue};
+pub use timestamps::{touch, LAST_UPDATED_AT};
 
-pub use properties::{
-    get_all_property_values,
-    get_all_iri_properties, replace_all_property_iris, replace_all_property_literals,
-    get_literal_property, get_all_literal_properties, get_iri_property,
-    has_property_iri, has_property_literal,
-    is_instance_of, is_subclass_of, find_entities_with_property, find_entities_with_predicate,
-    find_entities_with_property_keyset, find_entities_with_property_bounded,
-    get_all_current_triples,
-};
-pub use lock::{is_system_locked, set_system_locked, check_system_locked};
+pub use lock::{check_system_locked, is_system_locked, set_system_locked};
 pub use models::{list_ai_models_as_of, AiModelRow};
+pub use properties::{
+    find_entities_with_predicate, find_entities_with_property, find_entities_with_property_bounded,
+    find_entities_with_property_keyset, get_all_current_triples, get_all_iri_properties,
+    get_all_literal_properties, get_all_property_values, get_iri_property, get_literal_property,
+    has_property_iri, has_property_literal, is_instance_of, is_subclass_of,
+    replace_all_property_iris, replace_all_property_literals,
+};
+pub use records::{
+    list_records_page, RecordListItem, RecordListPage, RecordListQuery, RecordStateGroup,
+};
 pub use status::{get_entity_status_info, validate_allowed_status};
 
 /// Represents an OWL Individual (instance of a class)
@@ -47,7 +52,7 @@ pub struct Individual {
     pub comment: Option<String>,
     pub types: Vec<Thing>,
     pub properties: Vec<(String, Object)>, // (property_iri, value)
-    pub property_tx: Vec<i64>, // transaction IDs parallel to properties
+    pub property_tx: Vec<i64>,             // transaction IDs parallel to properties
     pub backlinks: Vec<crate::eavto::query::BacklinkRow>,
     /// Total value count per predicate when the predicate has more values than were loaded.
     /// Predicates with ≤ FORWARD_LIMIT_PER_GROUP values are absent (no truncation occurred).

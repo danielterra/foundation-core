@@ -1,6 +1,6 @@
 use super::{materialize_individual_shallow, ShallowValue};
 use crate::eavto::test_helpers::setup_test_db;
-use crate::eavto::{store, Triple, Object};
+use crate::eavto::{store, Object, Triple};
 
 fn seed(conn: &mut rusqlite::Connection, subject: &str, predicate: &str, object: Object) {
     store::assert_triples(conn, &[Triple::new(subject, predicate, object)], "test").unwrap();
@@ -11,28 +11,47 @@ fn seed(conn: &mut rusqlite::Connection, subject: &str, predicate: &str, object:
 #[test]
 fn test_materialize_happy_path() {
     let mut conn = setup_test_db();
-    seed(&mut conn, "test:Ind", "rdf:type", Object::Iri("test:Class".to_string()));
-    seed(&mut conn, "test:Ind", "rdfs:label", Object::Literal {
-        value: "My Ind".to_string(),
-        datatype: Some("xsd:string".to_string()),
-        language: None,
-    });
+    seed(
+        &mut conn,
+        "test:Ind",
+        "rdf:type",
+        Object::Iri("test:Class".to_string()),
+    );
+    seed(
+        &mut conn,
+        "test:Ind",
+        "rdfs:label",
+        Object::Literal {
+            value: "My Ind".to_string(),
+            datatype: Some("xsd:string".to_string()),
+            language: None,
+        },
+    );
 
     let map = materialize_individual_shallow(&conn, "test:Ind");
     assert!(!map.is_empty(), "deve retornar mapa não-vazio");
 
     let types = map.get("rdf:type").expect("rdf:type deve estar presente");
-    assert!(types.iter().any(|v| matches!(v, ShallowValue::Iri(iri) if iri == "test:Class")));
+    assert!(types
+        .iter()
+        .any(|v| matches!(v, ShallowValue::Iri(iri) if iri == "test:Class")));
 
-    let labels = map.get("rdfs:label").expect("rdfs:label deve estar presente");
-    assert!(labels.iter().any(|v| matches!(v, ShallowValue::Literal(s) if s == "My Ind")));
+    let labels = map
+        .get("rdfs:label")
+        .expect("rdfs:label deve estar presente");
+    assert!(labels
+        .iter()
+        .any(|v| matches!(v, ShallowValue::Literal(s) if s == "My Ind")));
 }
 
 #[test]
 fn test_materialize_individual_inexistente() {
     let conn = setup_test_db();
     let map = materialize_individual_shallow(&conn, "test:Ghost");
-    assert!(map.is_empty(), "individual inexistente deve retornar mapa vazio");
+    assert!(
+        map.is_empty(),
+        "individual inexistente deve retornar mapa vazio"
+    );
 }
 
 #[test]
@@ -40,47 +59,123 @@ fn test_materialize_multi_value() {
     let mut conn = setup_test_db();
     // Usa append_triples para gravar múltiplos valores no mesmo predicate
     use crate::eavto::store;
-    store::append_triples(&mut conn, &[
-        Triple::new("test:Multi", "test:hasTags", Object::Literal {
-            value: "rust".to_string(), datatype: Some("xsd:string".to_string()), language: None,
-        }),
-        Triple::new("test:Multi", "test:hasTags", Object::Literal {
-            value: "owl".to_string(), datatype: Some("xsd:string".to_string()), language: None,
-        }),
-        Triple::new("test:Multi", "test:hasTags", Object::Literal {
-            value: "sqlite".to_string(), datatype: Some("xsd:string".to_string()), language: None,
-        }),
-    ], "test").unwrap();
+    store::append_triples(
+        &mut conn,
+        &[
+            Triple::new(
+                "test:Multi",
+                "test:hasTags",
+                Object::Literal {
+                    value: "rust".to_string(),
+                    datatype: Some("xsd:string".to_string()),
+                    language: None,
+                },
+            ),
+            Triple::new(
+                "test:Multi",
+                "test:hasTags",
+                Object::Literal {
+                    value: "owl".to_string(),
+                    datatype: Some("xsd:string".to_string()),
+                    language: None,
+                },
+            ),
+            Triple::new(
+                "test:Multi",
+                "test:hasTags",
+                Object::Literal {
+                    value: "sqlite".to_string(),
+                    datatype: Some("xsd:string".to_string()),
+                    language: None,
+                },
+            ),
+        ],
+        "test",
+    )
+    .unwrap();
 
     let map = materialize_individual_shallow(&conn, "test:Multi");
-    let tags = map.get("test:hasTags").expect("test:hasTags deve estar presente");
+    let tags = map
+        .get("test:hasTags")
+        .expect("test:hasTags deve estar presente");
     assert_eq!(tags.len(), 3, "multi-valor: deve ter 3 valores");
-    let tag_strs: Vec<&str> = tags.iter().map(|v| match v {
-        ShallowValue::Literal(s) => s.as_str(),
-        ShallowValue::Iri(s) => s.as_str(),
-    }).collect();
+    let tag_strs: Vec<&str> = tags
+        .iter()
+        .map(|v| match v {
+            ShallowValue::Literal(s) => s.as_str(),
+            ShallowValue::Iri(s) => s.as_str(),
+        })
+        .collect();
     assert!(tag_strs.contains(&"rust"));
     assert!(tag_strs.contains(&"owl"));
     assert!(tag_strs.contains(&"sqlite"));
 }
 
 #[test]
+fn test_materialize_uses_complete_latest_tx_group() {
+    let mut conn = setup_test_db();
+    let value = |v: &str| {
+        Triple::new(
+            "test:Versioned",
+            "test:hasTags",
+            Object::Literal {
+                value: v.to_string(),
+                datatype: Some("xsd:string".to_string()),
+                language: None,
+            },
+        )
+    };
+
+    store::assert_triples(&mut conn, &[value("old-a"), value("old-b")], "test").unwrap();
+    store::assert_triples(&mut conn, &[value("new-a"), value("new-b")], "test").unwrap();
+
+    let map = materialize_individual_shallow(&conn, "test:Versioned");
+    let tags = map
+        .get("test:hasTags")
+        .expect("latest group must be materialized");
+    let values: std::collections::HashSet<&str> = tags
+        .iter()
+        .map(|value| match value {
+            ShallowValue::Literal(value) | ShallowValue::Iri(value) => value.as_str(),
+        })
+        .collect();
+
+    assert_eq!(values, std::collections::HashSet::from(["new-a", "new-b"]));
+}
+
+#[test]
 fn test_materialize_iri_vs_literal() {
     let mut conn = setup_test_db();
-    seed(&mut conn, "test:IriLit", "test:refProp", Object::Iri("test:Target".to_string()));
-    seed(&mut conn, "test:IriLit", "test:litProp", Object::Literal {
-        value: "42".to_string(),
-        datatype: Some("xsd:integer".to_string()),
-        language: None,
-    });
+    seed(
+        &mut conn,
+        "test:IriLit",
+        "test:refProp",
+        Object::Iri("test:Target".to_string()),
+    );
+    seed(
+        &mut conn,
+        "test:IriLit",
+        "test:litProp",
+        Object::Literal {
+            value: "42".to_string(),
+            datatype: Some("xsd:integer".to_string()),
+            language: None,
+        },
+    );
 
     let map = materialize_individual_shallow(&conn, "test:IriLit");
 
     let ref_vals = map.get("test:refProp").expect("refProp deve existir");
-    assert!(ref_vals.iter().any(|v| matches!(v, ShallowValue::Iri(_))),
-        "valor IRI deve mapeiar para ShallowValue::Iri");
+    assert!(
+        ref_vals.iter().any(|v| matches!(v, ShallowValue::Iri(_))),
+        "valor IRI deve mapeiar para ShallowValue::Iri"
+    );
 
     let lit_vals = map.get("test:litProp").expect("litProp deve existir");
-    assert!(lit_vals.iter().any(|v| matches!(v, ShallowValue::Literal(_))),
-        "valor literal deve mapeiar para ShallowValue::Literal");
+    assert!(
+        lit_vals
+            .iter()
+            .any(|v| matches!(v, ShallowValue::Literal(_))),
+        "valor literal deve mapeiar para ShallowValue::Literal"
+    );
 }

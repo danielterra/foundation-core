@@ -28,7 +28,7 @@ pub struct RecordListQuery<'a> {
     pub type_predicate: &'a str,
     pub class_iri: &'a str,
     pub parent_predicate: &'a str,
-    pub parent_iri: &'a str,
+    pub parent_iri: Option<&'a str>,
     pub state_predicate: &'a str,
     pub state_iri: Option<&'a str>,
     pub snapshot_tx: Option<i64>,
@@ -102,7 +102,11 @@ states AS (
 eligible AS (
     SELECT m.subject, m.creation_tx
     FROM members m
-    JOIN parents p ON p.subject = m.subject
+    WHERE :parent_iri IS NULL OR EXISTS (
+        SELECT 1
+        FROM parents p
+        WHERE p.subject = m.subject
+    )
 )
 ";
 
@@ -215,7 +219,6 @@ fn validate_query(query: &RecordListQuery<'_>) -> Result<()> {
         ("type_predicate", query.type_predicate),
         ("class_iri", query.class_iri),
         ("parent_predicate", query.parent_predicate),
-        ("parent_iri", query.parent_iri),
         ("state_predicate", query.state_predicate),
     ] {
         if value.trim().is_empty() {
@@ -224,6 +227,12 @@ fn validate_query(query: &RecordListQuery<'_>) -> Result<()> {
     }
     if query.state_iri.is_some_and(|value| value.trim().is_empty()) {
         return Err(invalid_input("state_iri must not be empty when provided"));
+    }
+    if query
+        .parent_iri
+        .is_some_and(|value| value.trim().is_empty())
+    {
+        return Err(invalid_input("parent_iri must not be empty when provided"));
     }
     if query.limit == 0 {
         return Err(invalid_input("limit must be greater than zero"));
@@ -268,7 +277,7 @@ mod tests {
             type_predicate: TYPE,
             class_iri: CLASS,
             parent_predicate: PARENT,
-            parent_iri: ROOT,
+            parent_iri: Some(ROOT),
             state_predicate: STATE,
             state_iri: None,
             snapshot_tx,
@@ -344,6 +353,29 @@ mod tests {
             }]
         );
         assert!(!second.has_more);
+    }
+
+    #[test]
+    fn omitting_parent_includes_records_from_every_parent() {
+        let mut conn = setup_test_db();
+        add_record(&mut conn, "test:A", "test:Open");
+        store::assert_triples(
+            &mut conn,
+            &[
+                Triple::new("test:B", TYPE, Object::Iri(CLASS.to_string())),
+                Triple::new("test:B", PARENT, Object::Iri("test:OtherRoot".to_string())),
+                Triple::new("test:B", STATE, Object::Iri("test:Open".to_string())),
+            ],
+            "test",
+        )
+        .unwrap();
+
+        let mut all_parents = query(None, None, 10);
+        all_parents.parent_iri = None;
+        let page = list_records_page(&conn, all_parents).unwrap();
+
+        assert_eq!(page.items.len(), 2);
+        assert_eq!(page.snapshot_tx, 2);
     }
 
     #[test]

@@ -1,17 +1,13 @@
-use crate::eavto::Connection;
+use super::properties::{get_iri_property, get_literal_property, is_instance_of};
 use crate::eavto::query;
+use crate::eavto::Connection;
 use crate::eavto::Object;
-use crate::owl::{Result, OwlError, Thing};
 use crate::owl::icons::icon_iri_to_display;
-use super::properties::{get_literal_property, get_iri_property, is_instance_of};
+use crate::owl::{OwlError, Result, Thing};
 
 /// Validates that `status_iri` is in the `foundation:allowedStatus` list of `class_iri`.
 /// Returns an error if the class has no configured statuses, or if the status is not allowed.
-pub fn validate_allowed_status(
-    conn: &Connection,
-    class_iri: &str,
-    status_iri: &str,
-) -> Result<()> {
+pub fn validate_allowed_status(conn: &Connection, class_iri: &str, status_iri: &str) -> Result<()> {
     let result = query::get_by_entity_predicate(conn, class_iri, "foundation:allowedStatus")?;
     if result.triples.is_empty() {
         let class_label = get_literal_property(conn, class_iri, "rdfs:label")?
@@ -21,12 +17,15 @@ pub fn validate_allowed_status(
             class_label, class_iri
         )));
     }
-    let allowed_iris: Vec<String> = result.triples.iter()
+    let allowed_iris: Vec<String> = result
+        .triples
+        .iter()
         .filter_map(|t| t.object.as_iri())
         .map(|s| s.to_string())
         .collect();
     if !allowed_iris.iter().any(|s| s == status_iri) {
-        let allowed_labels: Vec<String> = allowed_iris.iter()
+        let allowed_labels: Vec<String> = allowed_iris
+            .iter()
             .map(|iri| {
                 get_literal_property(conn, iri, "rdfs:label")
                     .ok()
@@ -39,7 +38,9 @@ pub fn validate_allowed_status(
             .unwrap_or_else(|| class_iri.to_string());
         return Err(OwlError::ValidationError(format!(
             "Status '{}' is not allowed for concept '{}'. Accepted statuses: {}",
-            status_iri, class_label, allowed_labels.join(", ")
+            status_iri,
+            class_label,
+            allowed_labels.join(", ")
         )));
     }
     Ok(())
@@ -63,22 +64,28 @@ pub fn resolve_status_appearance(
                     .and_then(|r| {
                         r.triples.first().and_then(|t| match &t.object {
                             Object::Iri(icon_iri) => icon_iri_to_display(conn, icon_iri),
-                            Object::Literal { value, .. } =>
-                                Some(crate::owl::icon_literal_to_display(value)),
+                            Object::Literal { value, .. } => {
+                                Some(crate::owl::icon_literal_to_display(value))
+                            }
                             _ => None,
                         })
                     })
             };
         }
         if color.is_none() {
-            color = get_literal_property(conn, &current, "foundation:color").ok().flatten();
+            color = get_literal_property(conn, &current, "foundation:color")
+                .ok()
+                .flatten();
         }
 
         if icon.is_some() && color.is_some() {
             break;
         }
 
-        match get_iri_property(conn, &current, "foundation:parentStatus").ok().flatten() {
+        match get_iri_property(conn, &current, "foundation:parentStatus")
+            .ok()
+            .flatten()
+        {
             Some(parent) if parent != current => current = parent,
             _ => break,
         }

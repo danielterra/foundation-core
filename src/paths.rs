@@ -37,15 +37,24 @@ pub fn configure(app_dir_name: &str, db_filename: &str, app_namespace: &str) {
 }
 
 pub fn app_dir_name() -> &'static str {
-    APP_DIR_NAME.get().map(String::as_str).unwrap_or("Foundation")
+    APP_DIR_NAME
+        .get()
+        .map(String::as_str)
+        .unwrap_or("Foundation")
 }
 
 pub fn db_filename() -> &'static str {
-    DB_FILENAME.get().map(String::as_str).unwrap_or("FOUNDATION.db")
+    DB_FILENAME
+        .get()
+        .map(String::as_str)
+        .unwrap_or("FOUNDATION.db")
 }
 
 pub fn app_namespace() -> &'static str {
-    APP_NAMESPACE.get().map(String::as_str).unwrap_or("org.w3id.foundation")
+    APP_NAMESPACE
+        .get()
+        .map(String::as_str)
+        .unwrap_or("org.w3id.foundation")
 }
 
 /// Capture the foundation_dir at startup. Idempotent — only the first call wins.

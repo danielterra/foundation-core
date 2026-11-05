@@ -1,6 +1,6 @@
 use super::list_ai_models_as_of;
 use crate::eavto::test_helpers::setup_test_db;
-use crate::eavto::{store, Triple, Object};
+use crate::eavto::{store, Object, Triple};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -15,20 +15,33 @@ const DESC_PRED: &str = "test:description";
 const SVC_A: &str = "test:ServiceA";
 
 fn seed_model(conn: &mut rusqlite::Connection, iri: &str, label: &str, service: &str) {
-    store::assert_triples(conn, &[
-        Triple::new(iri, TYPE_PRED, Object::Iri(MODEL_CLASS.to_string())),
-        Triple::new(iri, OFFERED_BY, Object::Iri(service.to_string())),
-        Triple::new(iri, LABEL_PRED, Object::Literal {
-            value: label.to_string(),
-            datatype: Some("xsd:string".to_string()),
-            language: None,
-        }),
-        Triple::new(iri, ID_PRED, Object::Literal {
-            value: iri.to_string(),
-            datatype: Some("xsd:string".to_string()),
-            language: None,
-        }),
-    ], "test").unwrap();
+    store::assert_triples(
+        conn,
+        &[
+            Triple::new(iri, TYPE_PRED, Object::Iri(MODEL_CLASS.to_string())),
+            Triple::new(iri, OFFERED_BY, Object::Iri(service.to_string())),
+            Triple::new(
+                iri,
+                LABEL_PRED,
+                Object::Literal {
+                    value: label.to_string(),
+                    datatype: Some("xsd:string".to_string()),
+                    language: None,
+                },
+            ),
+            Triple::new(
+                iri,
+                ID_PRED,
+                Object::Literal {
+                    value: iri.to_string(),
+                    datatype: Some("xsd:string".to_string()),
+                    language: None,
+                },
+            ),
+        ],
+        "test",
+    )
+    .unwrap();
 }
 
 fn snapshot(conn: &rusqlite::Connection) -> i64 {
@@ -70,14 +83,24 @@ fn test_list_ai_models_is_default_object_value_true() {
     seed_model(&mut conn, "test:ModelOther", "Other", SVC_A);
 
     // Grava is_default via Object::Boolean — preenche object_value='true' E object_boolean=1
-    store::assert_triples(&mut conn, &[
-        Triple::new("test:ModelDefault", IS_DEFAULT, Object::Boolean(true)),
-    ], "test").unwrap();
+    store::assert_triples(
+        &mut conn,
+        &[Triple::new(
+            "test:ModelDefault",
+            IS_DEFAULT,
+            Object::Boolean(true),
+        )],
+        "test",
+    )
+    .unwrap();
 
     let snap = snapshot(&conn);
     let (rows, _) = call(&conn, Some(SVC_A), snap, 10, 0);
     assert!(!rows.is_empty(), "deve retornar modelos");
-    assert_eq!(rows[0].subject, "test:ModelDefault", "default deve ser o primeiro (is_default DESC)");
+    assert_eq!(
+        rows[0].subject, "test:ModelDefault",
+        "default deve ser o primeiro (is_default DESC)"
+    );
     assert!(rows[0].is_default, "is_default deve ser true");
     assert!(!rows[1].is_default, "outros modelos: is_default=false");
 }
@@ -94,7 +117,8 @@ fn test_list_ai_models_is_default_object_boolean_only() {
     conn.execute(
         "INSERT INTO transactions (origin, created_at) VALUES ('test', 0)",
         [],
-    ).unwrap();
+    )
+    .unwrap();
     let tx_id = conn.last_insert_rowid();
     conn.execute(
         "INSERT INTO triples (subject, predicate, object_boolean, object_value, object_type, \
@@ -105,10 +129,18 @@ fn test_list_ai_models_is_default_object_boolean_only() {
 
     let snap = snapshot(&conn);
     let (rows, _) = call(&conn, Some(SVC_A), snap, 10, 0);
-    let default_row = rows.iter().find(|r| r.subject == "test:ModelBool")
+    let default_row = rows
+        .iter()
+        .find(|r| r.subject == "test:ModelBool")
         .expect("ModelBool deve estar presente");
-    assert!(default_row.is_default, "is_default via object_boolean=1 deve resultar em true");
-    assert_eq!(rows[0].subject, "test:ModelBool", "default deve subir ao topo");
+    assert!(
+        default_row.is_default,
+        "is_default via object_boolean=1 deve resultar em true"
+    );
+    assert_eq!(
+        rows[0].subject, "test:ModelBool",
+        "default deve subir ao topo"
+    );
 }
 
 // ── membership: por service_iri ───────────────────────────────────────────────
@@ -145,17 +177,24 @@ fn test_list_ai_models_ordering() {
     let mut conn = setup_test_db();
 
     // Três modelos; "Beta" é default
-    for (iri, label) in &[("test:Zeta", "Zeta"), ("test:Alpha", "Alpha"), ("test:Beta", "Beta")] {
+    for (iri, label) in &[
+        ("test:Zeta", "Zeta"),
+        ("test:Alpha", "Alpha"),
+        ("test:Beta", "Beta"),
+    ] {
         seed_model(&mut conn, iri, label, SVC_A);
     }
-    store::assert_triples(&mut conn, &[
-        Triple::new("test:Beta", IS_DEFAULT, Object::Boolean(true)),
-    ], "test").unwrap();
+    store::assert_triples(
+        &mut conn,
+        &[Triple::new("test:Beta", IS_DEFAULT, Object::Boolean(true))],
+        "test",
+    )
+    .unwrap();
 
     let snap = snapshot(&conn);
     let (rows, _) = call(&conn, Some(SVC_A), snap, 10, 0);
     assert_eq!(rows.len(), 3);
-    assert_eq!(rows[0].subject, "test:Beta");  // default primeiro
+    assert_eq!(rows[0].subject, "test:Beta"); // default primeiro
     assert_eq!(rows[1].subject, "test:Alpha"); // depois label ASC
     assert_eq!(rows[2].subject, "test:Zeta");
 }
@@ -166,7 +205,12 @@ fn test_list_ai_models_ordering() {
 fn test_list_ai_models_has_more_with_limit() {
     let mut conn = setup_test_db();
     for i in 0..5 {
-        seed_model(&mut conn, &format!("test:M{}", i), &format!("M{}", i), SVC_A);
+        seed_model(
+            &mut conn,
+            &format!("test:M{}", i),
+            &format!("M{}", i),
+            SVC_A,
+        );
     }
 
     let snap = snapshot(&conn);
@@ -185,14 +229,22 @@ fn test_list_ai_models_has_more_with_limit() {
 fn test_list_ai_models_offset_stable() {
     let mut conn = setup_test_db();
     for i in 0..4 {
-        seed_model(&mut conn, &format!("test:N{}", i), &format!("N{}", i), SVC_A);
+        seed_model(
+            &mut conn,
+            &format!("test:N{}", i),
+            &format!("N{}", i),
+            SVC_A,
+        );
     }
     let snap = snapshot(&conn);
 
     let (page1, _) = call(&conn, Some(SVC_A), snap, 2, 0);
     let (page2, _) = call(&conn, Some(SVC_A), snap, 2, 2);
-    let all: Vec<_> = page1.iter().chain(page2.iter())
-        .map(|r| r.subject.clone()).collect();
+    let all: Vec<_> = page1
+        .iter()
+        .chain(page2.iter())
+        .map(|r| r.subject.clone())
+        .collect();
     assert_eq!(all.len(), 4, "4 resultados no total");
     // sem duplicatas
     let mut sorted = all.clone();
@@ -210,18 +262,28 @@ fn test_list_ai_models_snapshot_tx_freezes_values() {
     let snap = snapshot(&conn);
 
     // Escreve novo label APÓS o snapshot
-    store::assert_triples(&mut conn, &[
-        Triple::new("test:Freeze", LABEL_PRED, Object::Literal {
-            value: "NewLabel".to_string(),
-            datatype: Some("xsd:string".to_string()),
-            language: None,
-        }),
-    ], "test").unwrap();
+    store::assert_triples(
+        &mut conn,
+        &[Triple::new(
+            "test:Freeze",
+            LABEL_PRED,
+            Object::Literal {
+                value: "NewLabel".to_string(),
+                datatype: Some("xsd:string".to_string()),
+                language: None,
+            },
+        )],
+        "test",
+    )
+    .unwrap();
 
     let (rows, _) = call(&conn, Some(SVC_A), snap, 10, 0);
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].label.as_deref(), Some("OldLabel"),
-        "label deve ser o valor as-of snapshot_tx, não o novo");
+    assert_eq!(
+        rows[0].label.as_deref(),
+        Some("OldLabel"),
+        "label deve ser o valor as-of snapshot_tx, não o novo"
+    );
 }
 
 // ── página vazia ──────────────────────────────────────────────────────────────

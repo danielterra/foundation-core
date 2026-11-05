@@ -1,5 +1,5 @@
 use crate::eavto::Connection;
-use crate::owl::{Result, OwlError};
+use crate::owl::{OwlError, Result};
 use rusqlite::types::Value as SqlValue;
 
 #[cfg(test)]
@@ -164,7 +164,8 @@ pub fn list_ai_models_as_of(
          LIMIT ?9 OFFSET ?10"
     );
 
-    let mut stmt = conn.prepare(&sql)
+    let mut stmt = conn
+        .prepare(&sql)
         .map_err(|e| OwlError::DatabaseError(e.to_string()))?;
 
     let params: Vec<SqlValue> = vec![
@@ -184,12 +185,12 @@ pub fn list_ai_models_as_of(
         .query_map(rusqlite::params_from_iter(params.iter()), |row| {
             let is_default_int: i64 = row.get(5)?;
             Ok(AiModelRow {
-                subject:          row.get(0)?,
-                label:            row.get(1)?,
-                description:      row.get(2)?,
+                subject: row.get(0)?,
+                label: row.get(1)?,
+                description: row.get(2)?,
                 model_identifier: row.get(3)?,
-                model_version:    row.get(4)?,
-                is_default:       is_default_int != 0,
+                model_version: row.get(4)?,
+                is_default: is_default_int != 0,
             })
         })
         .map_err(|e| OwlError::DatabaseError(e.to_string()))?

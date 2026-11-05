@@ -4,8 +4,8 @@
 // Provides database statistics and metrics
 // ============================================================================
 
-use rusqlite::Connection;
 use super::connection::DbError;
+use rusqlite::Connection;
 
 /// Database statistics
 #[derive(Debug, serde::Serialize)]
@@ -19,35 +19,30 @@ pub struct DbStats {
 
 /// Get database statistics
 pub fn get_stats(conn: &Connection) -> Result<DbStats, DbError> {
-    let total_facts: u64 = conn.query_row(
-        "SELECT COUNT(*) FROM triples",
-        [],
-        |row| row.get(0)
-    )?;
+    let total_facts: u64 = conn.query_row("SELECT COUNT(*) FROM triples", [], |row| row.get(0))?;
 
     let active_facts: u64 = conn.query_row(
         "SELECT COUNT(*) FROM triples WHERE retracted = 0",
         [],
-        |row| row.get(0)
+        |row| row.get(0),
     )?;
 
-    let total_transactions: u64 = conn.query_row(
-        "SELECT COUNT(*) FROM transactions",
-        [],
-        |row| row.get(0)
-    )?;
+    let total_transactions: u64 =
+        conn.query_row("SELECT COUNT(*) FROM transactions", [], |row| row.get(0))?;
 
     let entities_count: u64 = conn.query_row(
         "SELECT COUNT(DISTINCT subject) FROM triples WHERE retracted = 0",
         [],
-        |row| row.get(0)
+        |row| row.get(0),
     )?;
 
-    let ontology_imported_str: String = conn.query_row(
-        "SELECT value FROM metadata WHERE key = 'ontology_imported'",
-        [],
-        |row| row.get(0)
-    ).unwrap_or_else(|_| "false".to_string());
+    let ontology_imported_str: String = conn
+        .query_row(
+            "SELECT value FROM metadata WHERE key = 'ontology_imported'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or_else(|_| "false".to_string());
 
     let ontology_imported = ontology_imported_str == "true";
 

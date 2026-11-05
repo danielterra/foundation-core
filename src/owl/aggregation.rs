@@ -1,9 +1,16 @@
 use rusqlite::Connection;
 
 const NUMERIC_RANGES: &[&str] = &[
-    "xsd:integer", "xsd:decimal", "xsd:float", "xsd:double",
-    "xsd:int", "xsd:long", "xsd:short", "xsd:byte",
-    "xsd:nonNegativeInteger", "xsd:positiveInteger",
+    "xsd:integer",
+    "xsd:decimal",
+    "xsd:float",
+    "xsd:double",
+    "xsd:int",
+    "xsd:long",
+    "xsd:short",
+    "xsd:byte",
+    "xsd:nonNegativeInteger",
+    "xsd:positiveInteger",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -44,21 +51,26 @@ fn func_from_name(name: &str) -> Option<AggregationFunc> {
 pub fn parse_aggregation_call(s: &str) -> Result<AggregationCall, String> {
     let s = s.trim();
 
-    let paren_pos = s.find('(').ok_or_else(|| format!(
-        "Sintaxe de agregação inválida: '(' esperado em '{}'", s
-    ))?;
+    let paren_pos = s
+        .find('(')
+        .ok_or_else(|| format!("Sintaxe de agregação inválida: '(' esperado em '{}'", s))?;
 
     let func_name = s[..paren_pos].trim();
-    let func = func_from_name(func_name).ok_or_else(|| format!(
-        "Função de agregação desconhecida '{}'. Use: SOMA, MÉDIA, MÍNIMO, MÁXIMO, CONTAR \
+    let func = func_from_name(func_name).ok_or_else(|| {
+        format!(
+            "Função de agregação desconhecida '{}'. Use: SOMA, MÉDIA, MÍNIMO, MÁXIMO, CONTAR \
          (ou SUM, AVG, MIN, MAX, COUNT)",
-        func_name
-    ))?;
+            func_name
+        )
+    })?;
 
     let after_paren = &s[paren_pos + 1..];
-    let close_pos = after_paren.find(')').ok_or_else(|| format!(
-        "Sintaxe de agregação inválida: ')' não encontrado em '{}'", s
-    ))?;
+    let close_pos = after_paren.find(')').ok_or_else(|| {
+        format!(
+            "Sintaxe de agregação inválida: ')' não encontrado em '{}'",
+            s
+        )
+    })?;
 
     let after_call = after_paren[close_pos + 1..].trim();
     if !after_call.is_empty() {
@@ -73,12 +85,16 @@ pub fn parse_aggregation_call(s: &str) -> Result<AggregationCall, String> {
 
     if !inner.starts_with("{{") {
         return Err(format!(
-            "Sintaxe de agregação inválida: esperado '{{{{' após '(' em '{}'", s
+            "Sintaxe de agregação inválida: esperado '{{{{' após '(' em '{}'",
+            s
         ));
     }
-    let brace_end = inner.find("}}").ok_or_else(|| format!(
-        "Sintaxe de agregação inválida: '}}}}' não encontrado em '{}'", s
-    ))?;
+    let brace_end = inner.find("}}").ok_or_else(|| {
+        format!(
+            "Sintaxe de agregação inválida: '}}}}' não encontrado em '{}'",
+            s
+        )
+    })?;
     let source_prop = inner[2..brace_end].trim().to_string();
     if source_prop.is_empty() {
         return Err(format!("Propriedade de origem vazia em '{}'", s));
@@ -104,10 +120,9 @@ pub fn parse_aggregation_call(s: &str) -> Result<AggregationCall, String> {
     match func {
         AggregationFunc::Count => {
             if sub_prop.is_some() {
-                return Err(
-                    "CONTAR/COUNT não aceita sub-propriedade. \
-                     Use CONTAR({{prop}}) sem '.'".to_string()
-                );
+                return Err("CONTAR/COUNT não aceita sub-propriedade. \
+                     Use CONTAR({{prop}}) sem '.'"
+                    .to_string());
             }
         }
         _ => {
@@ -121,7 +136,11 @@ pub fn parse_aggregation_call(s: &str) -> Result<AggregationCall, String> {
         }
     }
 
-    Ok(AggregationCall { func, source_prop, sub_prop })
+    Ok(AggregationCall {
+        func,
+        source_prop,
+        sub_prop,
+    })
 }
 
 /// Validate that `s` is a syntactically correct aggregation call.
@@ -146,12 +165,15 @@ fn validate_iri_exists(
     iri: &str,
     role: &str,
 ) -> Result<(), crate::owl::OwlError> {
-    let exists: bool = conn.query_row(
-        "SELECT COUNT(*) FROM triples \
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM triples \
          WHERE subject = ?1 AND predicate = 'rdf:type' AND retracted = 0",
-        rusqlite::params![iri],
-        |row| row.get::<_, i64>(0),
-    ).map(|c| c > 0).unwrap_or(false);
+            rusqlite::params![iri],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|c| c > 0)
+        .unwrap_or(false);
 
     if !exists {
         return Err(crate::owl::OwlError::ValidationError(format!(
@@ -169,8 +191,7 @@ pub fn validate_aggregation_references(
     conn: &Connection,
     s: &str,
 ) -> Result<(), crate::owl::OwlError> {
-    let call = parse_aggregation_call(s.trim())
-        .map_err(crate::owl::OwlError::ValidationError)?;
+    let call = parse_aggregation_call(s.trim()).map_err(crate::owl::OwlError::ValidationError)?;
 
     validate_iri_format(&call.source_prop, "Propriedade de origem")?;
     validate_iri_exists(conn, &call.source_prop, "Propriedade de origem")?;
@@ -179,19 +200,23 @@ pub fn validate_aggregation_references(
         return Ok(());
     }
 
-    let sub_prop = call.sub_prop.as_ref().ok_or_else(|| crate::owl::OwlError::ValidationError(
-        "Sub-propriedade ausente para função de agregação não-Count".to_string()
-    ))?;
+    let sub_prop = call.sub_prop.as_ref().ok_or_else(|| {
+        crate::owl::OwlError::ValidationError(
+            "Sub-propriedade ausente para função de agregação não-Count".to_string(),
+        )
+    })?;
 
     validate_iri_format(sub_prop, "Sub-propriedade")?;
     validate_iri_exists(conn, sub_prop, "Sub-propriedade")?;
 
-    let range: Option<String> = conn.query_row(
-        "SELECT object FROM triples \
+    let range: Option<String> = conn
+        .query_row(
+            "SELECT object FROM triples \
          WHERE subject = ?1 AND predicate = 'rdfs:range' AND retracted = 0 LIMIT 1",
-        rusqlite::params![sub_prop],
-        |row| row.get::<_, Option<String>>(0),
-    ).unwrap_or(None);
+            rusqlite::params![sub_prop],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .unwrap_or(None);
 
     if let Some(r) = range.as_deref() {
         if !NUMERIC_RANGES.contains(&r) {
@@ -212,21 +237,25 @@ pub fn validate_aggregation_references(
 /// - If the instance type matches the domain → forward navigation (subject = instance)
 /// - Otherwise → inverse navigation (object = instance)
 fn is_inverse_navigation(conn: &Connection, instance_iri: &str, source_prop: &str) -> bool {
-    let domain: Option<String> = conn.query_row(
-        "SELECT object FROM triples \
+    let domain: Option<String> = conn
+        .query_row(
+            "SELECT object FROM triples \
          WHERE subject = ? AND predicate = 'rdfs:domain' AND retracted = 0 \
          ORDER BY tx DESC LIMIT 1",
-        rusqlite::params![source_prop],
-        |row| row.get(0),
-    ).ok();
+            rusqlite::params![source_prop],
+            |row| row.get(0),
+        )
+        .ok();
 
-    let instance_type: Option<String> = conn.query_row(
-        "SELECT object FROM triples \
+    let instance_type: Option<String> = conn
+        .query_row(
+            "SELECT object FROM triples \
          WHERE subject = ? AND predicate = 'rdf:type' AND retracted = 0 \
          ORDER BY tx DESC LIMIT 1",
-        rusqlite::params![instance_iri],
-        |row| row.get(0),
-    ).ok();
+            rusqlite::params![instance_iri],
+            |row| row.get(0),
+        )
+        .ok();
 
     match (domain, instance_type) {
         (Some(d), Some(t)) => d != t,
@@ -243,13 +272,15 @@ pub fn evaluate_aggregation_for_instance(
     instance_iri: &str,
     property_iri: &str,
 ) -> Result<String, String> {
-    let formula = conn.query_row(
-        "SELECT object_value FROM triples \
+    let formula = conn
+        .query_row(
+            "SELECT object_value FROM triples \
          WHERE subject = ? AND predicate = 'foundation:aggregation' AND retracted = 0 \
          ORDER BY tx DESC LIMIT 1",
-        rusqlite::params![property_iri],
-        |row| row.get::<_, String>(0),
-    ).map_err(|e| format!("Falha ao carregar agregação para {}: {}", property_iri, e))?;
+            rusqlite::params![property_iri],
+            |row| row.get::<_, String>(0),
+        )
+        .map_err(|e| format!("Falha ao carregar agregação para {}: {}", property_iri, e))?;
 
     let call = parse_aggregation_call(formula.trim())
         .map_err(|e| format!("Fórmula de agregação inválida '{}': {}", formula, e))?;
@@ -257,25 +288,31 @@ pub fn evaluate_aggregation_for_instance(
     let inverse = is_inverse_navigation(conn, instance_iri, &call.source_prop);
 
     let related_iris: Vec<String> = if inverse {
-        let mut stmt = conn.prepare(
-            "SELECT DISTINCT subject FROM triples \
+        let mut stmt = conn
+            .prepare(
+                "SELECT DISTINCT subject FROM triples \
              WHERE predicate = ?1 AND object = ?2 AND retracted = 0",
-        ).map_err(|e| format!("Erro na query inversa: {}", e))?;
-        let rows = stmt.query_map(rusqlite::params![call.source_prop, instance_iri], |row| {
-            row.get::<_, String>(0)
-        })
-        .map_err(|e| format!("Erro na query inversa: {}", e))?;
+            )
+            .map_err(|e| format!("Erro na query inversa: {}", e))?;
+        let rows = stmt
+            .query_map(rusqlite::params![call.source_prop, instance_iri], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(|e| format!("Erro na query inversa: {}", e))?;
         rows.filter_map(|r| r.ok()).collect()
     } else {
-        let mut stmt = conn.prepare(
-            "SELECT DISTINCT object FROM triples \
+        let mut stmt = conn
+            .prepare(
+                "SELECT DISTINCT object FROM triples \
              WHERE subject = ?1 AND predicate = ?2 AND retracted = 0 AND object IS NOT NULL \
                AND is_current = 1",
-        ).map_err(|e| format!("Erro na query: {}", e))?;
-        let rows = stmt.query_map(rusqlite::params![instance_iri, call.source_prop], |row| {
-            row.get::<_, String>(0)
-        })
-        .map_err(|e| format!("Erro na query: {}", e))?;
+            )
+            .map_err(|e| format!("Erro na query: {}", e))?;
+        let rows = stmt
+            .query_map(rusqlite::params![instance_iri, call.source_prop], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(|e| format!("Erro na query: {}", e))?;
         rows.filter_map(|r| r.ok()).collect()
     };
 
@@ -283,26 +320,31 @@ pub fn evaluate_aggregation_for_instance(
         return Ok(format!("{}", related_iris.len() as i64));
     }
 
-    let sub_prop = call.sub_prop.as_ref().ok_or_else(|| {
-        "Sub-propriedade ausente para função de agregação não-Count".to_string()
-    })?;
+    let sub_prop = call
+        .sub_prop
+        .as_ref()
+        .ok_or_else(|| "Sub-propriedade ausente para função de agregação não-Count".to_string())?;
     let mut values: Vec<f64> = Vec::new();
 
     for related_iri in &related_iris {
-        let val: Option<String> = conn.query_row(
-            "SELECT object_value FROM triples \
+        let val: Option<String> = conn
+            .query_row(
+                "SELECT object_value FROM triples \
              WHERE subject = ? AND predicate = ? AND retracted = 0 \
              ORDER BY tx DESC LIMIT 1",
-            rusqlite::params![related_iri, sub_prop],
-            |row| row.get::<_, Option<String>>(0),
-        ).unwrap_or(None);
+                rusqlite::params![related_iri, sub_prop],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .unwrap_or(None);
 
         match val {
             Some(v) => {
-                let n: f64 = v.parse().map_err(|_| format!(
-                    "Sub-propriedade '{}' valor '{}' em '{}' não é numérico",
-                    sub_prop, v, related_iri
-                ))?;
+                let n: f64 = v.parse().map_err(|_| {
+                    format!(
+                        "Sub-propriedade '{}' valor '{}' em '{}' não é numérico",
+                        sub_prop, v, related_iri
+                    )
+                })?;
                 values.push(n);
             }
             None => {}
@@ -337,8 +379,11 @@ mod tests {
     use crate::eavto::test_helpers::setup_test_db;
 
     fn insert_tx(conn: &Connection) -> i64 {
-        conn.execute("INSERT INTO transactions (origin, created_at) VALUES ('test', 0)", [])
-            .unwrap();
+        conn.execute(
+            "INSERT INTO transactions (origin, created_at) VALUES ('test', 0)",
+            [],
+        )
+        .unwrap();
         conn.last_insert_rowid()
     }
 
@@ -349,23 +394,27 @@ mod tests {
               object_datatype, origin_id, tx, created_at, retracted) \
              VALUES (?, 'foundation:aggregation', ?, 'literal', 'xsd:string', 1, ?, 0, 0)",
             rusqlite::params![property_iri, formula, tx],
-        ).unwrap();
+        )
+        .unwrap();
     }
 
-    fn insert_object_ref(
-        conn: &Connection, tx: i64, subject: &str, predicate: &str, object: &str,
-    ) {
+    fn insert_object_ref(conn: &Connection, tx: i64, subject: &str, predicate: &str, object: &str) {
         conn.execute(
             "INSERT INTO triples \
              (subject, predicate, object, object_type, \
               object_datatype, origin_id, tx, created_at, retracted) \
              VALUES (?, ?, ?, 'iri', 'xsd:string', 1, ?, 0, 0)",
             rusqlite::params![subject, predicate, object, tx],
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     fn insert_numeric_value(
-        conn: &Connection, tx: i64, subject: &str, predicate: &str, value: &str,
+        conn: &Connection,
+        tx: i64,
+        subject: &str,
+        predicate: &str,
+        value: &str,
     ) {
         conn.execute(
             "INSERT INTO triples \
@@ -373,7 +422,8 @@ mod tests {
               object_datatype, origin_id, tx, created_at, retracted) \
              VALUES (?, ?, ?, 'literal', 'xsd:decimal', 1, ?, 0, 0)",
             rusqlite::params![subject, predicate, value, tx],
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     fn insert_range(conn: &Connection, tx: i64, property_iri: &str, range: &str) {
@@ -383,7 +433,8 @@ mod tests {
               object_datatype, origin_id, tx, created_at, retracted) \
              VALUES (?, 'rdfs:range', ?, 'iri', 'xsd:string', 1, ?, 0, 0)",
             rusqlite::params![property_iri, range, tx],
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     fn insert_rdf_type(conn: &Connection, tx: i64, subject: &str, rdf_type: &str) {
@@ -393,7 +444,8 @@ mod tests {
               object_datatype, origin_id, tx, created_at, retracted) \
              VALUES (?, 'rdf:type', ?, 'iri', 'xsd:string', 1, ?, 0, 0)",
             rusqlite::params![subject, rdf_type, tx],
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     #[test]
@@ -426,7 +478,11 @@ mod tests {
 
         let result = evaluate_aggregation_for_instance(&conn, "inst:parent", "p:avg").unwrap();
         let parsed: f64 = result.parse().unwrap();
-        assert!((parsed - 20.0).abs() < 1e-10, "expected 20.0, got {}", result);
+        assert!(
+            (parsed - 20.0).abs() < 1e-10,
+            "expected 20.0, got {}",
+            result
+        );
     }
 
     #[test]
@@ -483,8 +539,10 @@ mod tests {
 
         let err = evaluate_aggregation_for_instance(&conn, "inst:parent", "p:avg").unwrap_err();
         assert!(
-            err.to_lowercase().contains("média") || err.to_lowercase().contains("media")
-                || err.contains("related") || err.contains("relacionad"),
+            err.to_lowercase().contains("média")
+                || err.to_lowercase().contains("media")
+                || err.contains("related")
+                || err.contains("relacionad"),
             "unexpected error: {}",
             err
         );
@@ -536,7 +594,10 @@ mod tests {
     #[test]
     fn test_validate_aggregation_rejects_arithmetic() {
         let err = validate_aggregation("SOMA({{p:items}}.p:value) + 5").unwrap_err();
-        assert!(!err.to_string().is_empty(), "should return a non-empty error");
+        assert!(
+            !err.to_string().is_empty(),
+            "should return a non-empty error"
+        );
     }
 
     #[test]
@@ -547,19 +608,23 @@ mod tests {
         insert_rdf_type(&conn, tx, "p:subProp", "owl:DatatypeProperty");
         insert_range(&conn, tx, "p:subProp", "xsd:decimal");
         let result = validate_aggregation_references(&conn, "SOMA({{p:sourceProp}}.p:subProp)");
-        assert!(result.is_ok(), "should accept object property as source: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "should accept object property as source: {:?}",
+            result
+        );
     }
 
     #[test]
     fn test_validate_aggregation_references_rejects_bare_source_prop() {
         let conn = setup_test_db();
-        let err = validate_aggregation_references(
-            &conn, "SOMA({{bareSourceProp}}.p:subProp)",
-        ).unwrap_err();
+        let err = validate_aggregation_references(&conn, "SOMA({{bareSourceProp}}.p:subProp)")
+            .unwrap_err();
         let msg = err.to_string();
         assert!(
             msg.contains("bareSourceProp") && (msg.contains("IRI") || msg.contains("prefixo")),
-            "error should mention invalid IRI: {}", msg
+            "error should mention invalid IRI: {}",
+            msg
         );
     }
 
@@ -568,27 +633,27 @@ mod tests {
         let conn = setup_test_db();
         let tx = insert_tx(&conn);
         insert_rdf_type(&conn, tx, "p:sourceProp", "owl:ObjectProperty");
-        let err = validate_aggregation_references(
-            &conn, "SOMA({{p:sourceProp}}.bareSubProp)",
-        ).unwrap_err();
+        let err = validate_aggregation_references(&conn, "SOMA({{p:sourceProp}}.bareSubProp)")
+            .unwrap_err();
         let msg = err.to_string();
         assert!(
             msg.contains("bareSubProp") && (msg.contains("IRI") || msg.contains("prefixo")),
-            "error should mention invalid IRI: {}", msg
+            "error should mention invalid IRI: {}",
+            msg
         );
     }
 
     #[test]
     fn test_validate_aggregation_references_rejects_nonexistent_source_prop() {
         let conn = setup_test_db();
-        let err = validate_aggregation_references(
-            &conn, "SOMA({{p:nonexistent}}.p:subProp)",
-        ).unwrap_err();
+        let err = validate_aggregation_references(&conn, "SOMA({{p:nonexistent}}.p:subProp)")
+            .unwrap_err();
         let msg = err.to_string();
         assert!(
             msg.contains("p:nonexistent")
                 && (msg.contains("encontrada") || msg.contains("not found")),
-            "error should mention nonexistent property: {}", msg
+            "error should mention nonexistent property: {}",
+            msg
         );
     }
 
@@ -598,7 +663,11 @@ mod tests {
         let tx = insert_tx(&conn);
         insert_rdf_type(&conn, tx, "p:members", "owl:ObjectProperty");
         let result = validate_aggregation_references(&conn, "CONTAR({{p:members}})");
-        assert!(result.is_ok(), "CONTAR with valid source_prop should pass: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "CONTAR with valid source_prop should pass: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -644,7 +713,11 @@ mod tests {
         insert_numeric_value(&conn, tx, "inst:child1", "p:value", "5");
 
         let result = evaluate_aggregation_for_instance(&conn, "inst:parent", "p:total").unwrap();
-        assert!(!result.contains('.'), "integer result should not have decimal point: {}", result);
+        assert!(
+            !result.contains('.'),
+            "integer result should not have decimal point: {}",
+            result
+        );
         assert_eq!(result, "5");
     }
 

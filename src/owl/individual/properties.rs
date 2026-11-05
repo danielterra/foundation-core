@@ -1,6 +1,6 @@
 use crate::eavto::Connection;
-use crate::eavto::{store, query, Triple, Object};
-use crate::owl::{Result, OwlError, vocabulary};
+use crate::eavto::{query, store, Object, Triple};
+use crate::owl::{vocabulary, OwlError, Result};
 
 #[cfg(test)]
 #[path = "properties_tests.rs"]
@@ -15,8 +15,15 @@ pub fn get_all_property_values(
     predicate: &str,
 ) -> Result<Vec<String>> {
     let result = query::get_by_entity_predicate(conn, entity, predicate)?;
-    Ok(result.triples.iter()
-        .filter_map(|t| t.object.as_iri().map(|s| s.to_string()).or_else(|| t.object.as_literal()))
+    Ok(result
+        .triples
+        .iter()
+        .filter_map(|t| {
+            t.object
+                .as_iri()
+                .map(|s| s.to_string())
+                .or_else(|| t.object.as_literal())
+        })
         .collect())
 }
 
@@ -27,7 +34,9 @@ pub fn get_all_iri_properties(
     predicate: &str,
 ) -> Result<Vec<String>> {
     let result = query::get_by_entity_predicate(conn, entity, predicate)?;
-    Ok(result.triples.iter()
+    Ok(result
+        .triples
+        .iter()
         .filter_map(|t| t.object.as_iri())
         .map(|s| s.to_string())
         .collect())
@@ -43,9 +52,14 @@ pub fn replace_all_property_iris(
 ) -> Result<()> {
     let old = query::get_by_entity_predicate(conn, entity, predicate)?;
     for triple in old.triples {
-        store::retract_triples(conn, &[Triple::new(entity, predicate, triple.object)], origin)?;
+        store::retract_triples(
+            conn,
+            &[Triple::new(entity, predicate, triple.object)],
+            origin,
+        )?;
     }
-    let new_triples: Vec<Triple> = values.iter()
+    let new_triples: Vec<Triple> = values
+        .iter()
         .map(|value| Triple::new(entity, predicate, Object::Iri(value.to_string())))
         .collect();
     if !new_triples.is_empty() {
@@ -64,14 +78,25 @@ pub fn replace_all_property_literals(
 ) -> Result<()> {
     let old = query::get_by_entity_predicate(conn, entity, predicate)?;
     for triple in old.triples {
-        store::retract_triples(conn, &[Triple::new(entity, predicate, triple.object)], origin)?;
+        store::retract_triples(
+            conn,
+            &[Triple::new(entity, predicate, triple.object)],
+            origin,
+        )?;
     }
-    let new_triples: Vec<Triple> = values.iter()
-        .map(|value| Triple::new(entity, predicate, Object::Literal {
-            value: value.to_string(),
-            datatype: Some("xsd:string".to_string()),
-            language: None,
-        }))
+    let new_triples: Vec<Triple> = values
+        .iter()
+        .map(|value| {
+            Triple::new(
+                entity,
+                predicate,
+                Object::Literal {
+                    value: value.to_string(),
+                    datatype: Some("xsd:string".to_string()),
+                    language: None,
+                },
+            )
+        })
         .collect();
     if !new_triples.is_empty() {
         store::assert_triples(conn, &new_triples, origin)?;
@@ -86,7 +111,11 @@ pub fn get_literal_property(
     predicate: &str,
 ) -> Result<Option<String>> {
     let result = query::get_by_entity_predicate(conn, entity, predicate)?;
-    Ok(result.triples.first().and_then(|t| t.object.as_literal()).map(|s| s.to_string()))
+    Ok(result
+        .triples
+        .first()
+        .and_then(|t| t.object.as_literal())
+        .map(|s| s.to_string()))
 }
 
 /// Returns all literal values for a predicate on an entity
@@ -96,7 +125,9 @@ pub fn get_all_literal_properties(
     predicate: &str,
 ) -> Result<Vec<String>> {
     let result = query::get_by_entity_predicate(conn, entity, predicate)?;
-    Ok(result.triples.iter()
+    Ok(result
+        .triples
+        .iter()
         .filter_map(|t| t.object.as_literal())
         .map(|s| s.to_string())
         .collect())
@@ -109,7 +140,11 @@ pub fn get_iri_property(
     predicate: &str,
 ) -> Result<Option<String>> {
     let result = query::get_by_entity_predicate(conn, entity, predicate)?;
-    Ok(result.triples.first().and_then(|t| t.object.as_iri()).map(|s| s.to_string()))
+    Ok(result
+        .triples
+        .first()
+        .and_then(|t| t.object.as_iri())
+        .map(|s| s.to_string()))
 }
 
 /// Returns true if the entity has the given predicate pointing to the given IRI value
@@ -231,7 +266,9 @@ pub fn find_entities_with_property_bounded(
             (sql, params)
         }
     };
-    let mut stmt = conn.prepare(&sql).map_err(|e| OwlError::DatabaseError(e.to_string()))?;
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| OwlError::DatabaseError(e.to_string()))?;
     let rows = stmt
         .query_map(rusqlite::params_from_iter(params.iter()), |row| row.get(0))
         .map_err(|e| OwlError::DatabaseError(e.to_string()))?
@@ -273,7 +310,9 @@ pub fn find_entities_with_property_keyset(
     sql.push_str(" ORDER BY t.tx DESC LIMIT ?");
     params.push(SqlValue::Integer(limit));
 
-    let mut stmt = conn.prepare(&sql).map_err(|e| OwlError::DatabaseError(e.to_string()))?;
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| OwlError::DatabaseError(e.to_string()))?;
     let rows = stmt
         .query_map(rusqlite::params_from_iter(params.iter()), |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
@@ -284,13 +323,12 @@ pub fn find_entities_with_property_keyset(
     Ok(rows)
 }
 
-pub fn find_entities_with_predicate(
-    conn: &Connection,
-    predicate: &str,
-) -> Result<Vec<String>> {
+pub fn find_entities_with_predicate(conn: &Connection, predicate: &str) -> Result<Vec<String>> {
     let result = query::get_by_predicate(conn, predicate)?;
     let mut seen = std::collections::HashSet::new();
-    Ok(result.triples.into_iter()
+    Ok(result
+        .triples
+        .into_iter()
         .map(|t| t.subject)
         .filter(|s| seen.insert(s.clone()))
         .collect())

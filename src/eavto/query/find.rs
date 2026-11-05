@@ -1,5 +1,5 @@
-use rusqlite::Connection;
 use rusqlite::types::Value as SqlValue;
+use rusqlite::Connection;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -57,7 +57,7 @@ pub fn find_by_class_and_properties(
 
     let mut query = String::from(
         "SELECT DISTINCT t0.subject
-         FROM triples_current t0"
+         FROM triples_current t0",
     );
 
     for (i, _) in properties.iter().enumerate() {
@@ -114,7 +114,11 @@ pub fn find_entities_by_class_with_date_range(
     to_millis: Option<i64>,
     include_retracted: bool,
 ) -> Result<Vec<String>> {
-    let table = if include_retracted { "triples" } else { "triples_current" };
+    let table = if include_retracted {
+        "triples"
+    } else {
+        "triples_current"
+    };
 
     let mut conditions = String::from("predicate = 'rdf:type' AND object = ?1");
 
@@ -126,10 +130,7 @@ pub fn find_entities_by_class_with_date_range(
         conditions.push_str(&format!(" AND created_at <= ?{}", param_num));
     }
 
-    let sql = format!(
-        "SELECT DISTINCT subject FROM {table} WHERE {}",
-        conditions
-    );
+    let sql = format!("SELECT DISTINCT subject FROM {table} WHERE {}", conditions);
 
     let mut stmt = conn.prepare(&sql)?;
 
@@ -164,16 +165,25 @@ pub fn find_by_class_iris_and_properties_with_options(
         return Ok((Vec::new(), 0));
     }
 
-    let table = if include_retracted { "triples" } else { "triples_current" };
+    let table = if include_retracted {
+        "triples"
+    } else {
+        "triples_current"
+    };
 
-    let class_placeholders = class_iris.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let class_placeholders = class_iris
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(", ");
     let mut joins = String::new();
     let mut join_params: Vec<SqlValue> = Vec::new();
     let mut where_clause = format!(
         "WHERE t0.predicate = 'rdf:type' \
          AND t0.object IN ({class_placeholders})"
     );
-    let mut where_params: Vec<SqlValue> = class_iris.iter()
+    let mut where_params: Vec<SqlValue> = class_iris
+        .iter()
         .map(|iri| SqlValue::Text(iri.to_string()))
         .collect();
 
@@ -191,9 +201,7 @@ pub fn find_by_class_iris_and_properties_with_options(
             joins.push_str(&format!(
                 "\n         INNER JOIN {table} t{n} ON t0.subject = t{n}.subject"
             ));
-            where_clause.push_str(&format!(
-                "\n           AND t{n}.predicate = ?"
-            ));
+            where_clause.push_str(&format!("\n           AND t{n}.predicate = ?"));
             where_params.push(SqlValue::Text(filter.prop_iri().to_string()));
         }
     }
@@ -264,7 +272,11 @@ pub fn find_by_class_iris_and_properties_with_options(
         |row| row.get::<_, i64>(0),
     )? as usize;
 
-    let limit_val: i64 = if limit == usize::MAX { -1 } else { limit as i64 };
+    let limit_val: i64 = if limit == usize::MAX {
+        -1
+    } else {
+        limit as i64
+    };
     let mut data_params = params;
     data_params.push(SqlValue::Integer(limit_val));
     data_params.push(SqlValue::Integer(offset as i64));
@@ -282,7 +294,9 @@ pub fn find_by_class_iris_and_properties_with_options(
             format!("SELECT subject FROM ({inner}) ORDER BY _sort {dir} LIMIT ? OFFSET ?");
         let mut stmt = conn.prepare(&data_query)?;
         let rows: std::result::Result<Vec<_>, _> = stmt
-            .query_map(rusqlite::params_from_iter(data_params.iter()), |row| row.get(0))?
+            .query_map(rusqlite::params_from_iter(data_params.iter()), |row| {
+                row.get(0)
+            })?
             .collect();
         rows?
     } else {
@@ -292,7 +306,9 @@ pub fn find_by_class_iris_and_properties_with_options(
         );
         let mut stmt = conn.prepare(&data_query)?;
         let rows: std::result::Result<Vec<_>, _> = stmt
-            .query_map(rusqlite::params_from_iter(data_params.iter()), |row| row.get(0))?
+            .query_map(rusqlite::params_from_iter(data_params.iter()), |row| {
+                row.get(0)
+            })?
             .collect();
         rows?
     };
@@ -312,7 +328,11 @@ pub fn find_by_properties_with_options(
         return Ok((Vec::new(), 0));
     }
 
-    let table = if include_retracted { "triples" } else { "triples_current" };
+    let table = if include_retracted {
+        "triples"
+    } else {
+        "triples_current"
+    };
 
     let mut joins = String::new();
     let mut join_params: Vec<SqlValue> = Vec::new();
@@ -322,7 +342,11 @@ pub fn find_by_properties_with_options(
     for (i, filter) in properties.iter().enumerate() {
         let optional = filter.is_optional();
 
-        let base = if let PropertyFilter::Compare(_, _, op) = filter { base_op(op) } else { "=" };
+        let base = if let PropertyFilter::Compare(_, _, op) = filter {
+            base_op(op)
+        } else {
+            "="
+        };
 
         if i == 0 && base == "not_exists" {
             where_clause.push_str(&format!(
@@ -334,9 +358,7 @@ pub fn find_by_properties_with_options(
             ));
             where_params.push(SqlValue::Text(filter.prop_iri().to_string()));
         } else if i == 0 {
-            where_clause.push_str(&format!(
-                "\n         WHERE t{i}.predicate = ?"
-            ));
+            where_clause.push_str(&format!("\n         WHERE t{i}.predicate = ?"));
             where_params.push(SqlValue::Text(filter.prop_iri().to_string()));
         } else if optional {
             joins.push_str(&format!(
@@ -348,9 +370,7 @@ pub fn find_by_properties_with_options(
             joins.push_str(&format!(
                 "\n         INNER JOIN {table} t{i} ON t0.subject = t{i}.subject"
             ));
-            where_clause.push_str(&format!(
-                "\n           AND t{i}.predicate = ?"
-            ));
+            where_clause.push_str(&format!("\n           AND t{i}.predicate = ?"));
             where_params.push(SqlValue::Text(filter.prop_iri().to_string()));
         }
     }
@@ -408,7 +428,11 @@ pub fn find_by_properties_with_options(
         |row| row.get::<_, i64>(0),
     )? as usize;
 
-    let limit_val: i64 = if limit == usize::MAX { -1 } else { limit as i64 };
+    let limit_val: i64 = if limit == usize::MAX {
+        -1
+    } else {
+        limit as i64
+    };
     let mut data_params = params;
     data_params.push(SqlValue::Integer(limit_val));
     data_params.push(SqlValue::Integer(offset as i64));
@@ -418,7 +442,9 @@ pub fn find_by_properties_with_options(
     );
     let mut stmt = conn.prepare(&data_query)?;
     let entities: Vec<String> = stmt
-        .query_map(rusqlite::params_from_iter(data_params.iter()), |row| row.get(0))?
+        .query_map(rusqlite::params_from_iter(data_params.iter()), |row| {
+            row.get(0)
+        })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok((entities, total))
@@ -464,10 +490,17 @@ pub fn find_class_instance_ordered_by_child_timestamp(
     ";
     let mut stmt = conn.prepare(sql)?;
     let mut rows = stmt.query(rusqlite::params![
-        class_iri, guard_predicate, child_link_predicate,
-        child_ts_predicate, child_filter_predicate, child_filter_value,
+        class_iri,
+        guard_predicate,
+        child_link_predicate,
+        child_ts_predicate,
+        child_filter_predicate,
+        child_filter_value,
     ])?;
-    Ok(rows.next()?.map(|row| row.get::<_, String>(0)).transpose()?)
+    Ok(rows
+        .next()?
+        .map(|row| row.get::<_, String>(0))
+        .transpose()?)
 }
 
 /// Generic: find subjects that are linked to `parent_iri` via `link_predicate`,
@@ -510,7 +543,13 @@ pub fn find_subjects_linked_to_ordered_by(
     let mut stmt = conn.prepare(sql)?;
     let iris = stmt
         .query_map(
-            rusqlite::params![link_predicate, parent_iri, order_predicate, limit_i64, offset as i64],
+            rusqlite::params![
+                link_predicate,
+                parent_iri,
+                order_predicate,
+                limit_i64,
+                offset as i64
+            ],
             |row| row.get(0),
         )?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -587,7 +626,9 @@ fn build_value_condition_fragment(
     } else {
         params.push(SqlValue::Text(value.to_string()));
         params.push(SqlValue::Text(value.to_string()));
-        Ok(format!("(t{n}.object_value {sql_op} ? OR t{n}.object {sql_op} ?)"))
+        Ok(format!(
+            "(t{n}.object_value {sql_op} ? OR t{n}.object {sql_op} ?)"
+        ))
     }
 }
 
@@ -602,7 +643,8 @@ fn normalize_date_filter(value: &str) -> Option<DateFilter> {
     }
     if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S") {
         use chrono::TimeZone;
-        let epoch = chrono::Local.from_local_datetime(&ndt)
+        let epoch = chrono::Local
+            .from_local_datetime(&ndt)
             .single()
             .map(|dt| dt.timestamp())
             .unwrap_or_else(|| ndt.and_utc().timestamp());
@@ -630,7 +672,7 @@ pub fn find_entities_by_attribute_value(
     let mut stmt = conn.prepare(
         "SELECT DISTINCT subject
          FROM triples_current
-         WHERE predicate = ? AND object_value = ?"
+         WHERE predicate = ? AND object_value = ?",
     )?;
 
     let entities: Vec<String> = stmt
@@ -653,7 +695,11 @@ mod sort_tests {
         ) {
             return id;
         }
-        conn.execute("INSERT INTO transactions (origin, created_at) VALUES ('test', 0)", []).unwrap();
+        conn.execute(
+            "INSERT INTO transactions (origin, created_at) VALUES ('test', 0)",
+            [],
+        )
+        .unwrap();
         conn.last_insert_rowid()
     }
 
@@ -685,12 +731,20 @@ mod sort_tests {
         insert_triple(&conn, "ex:A", "rdfs:label", "A");
         insert_triple(&conn, "ex:C", "rdfs:label", "C");
 
-        let sort = SortSpec { property_iri: "rdfs:label".to_string(), direction: SortDirection::Asc };
+        let sort = SortSpec {
+            property_iri: "rdfs:label".to_string(),
+            direction: SortDirection::Asc,
+        };
         let (results, _) = find_by_class_iris_and_properties_with_options(
-            &conn, &["ex:Thing"],
+            &conn,
+            &["ex:Thing"],
             &[PropertyFilter::Compare("rdfs:label", "A", "?>=")],
-            false, usize::MAX, 0, Some(&sort),
-        ).unwrap();
+            false,
+            usize::MAX,
+            0,
+            Some(&sort),
+        )
+        .unwrap();
 
         assert_eq!(results, vec!["ex:A", "ex:B", "ex:C"]);
     }
@@ -705,12 +759,20 @@ mod sort_tests {
         insert_triple(&conn, "ex:A", "rdfs:label", "A");
         insert_triple(&conn, "ex:C", "rdfs:label", "C");
 
-        let sort = SortSpec { property_iri: "rdfs:label".to_string(), direction: SortDirection::Desc };
+        let sort = SortSpec {
+            property_iri: "rdfs:label".to_string(),
+            direction: SortDirection::Desc,
+        };
         let (results, _) = find_by_class_iris_and_properties_with_options(
-            &conn, &["ex:Thing"],
+            &conn,
+            &["ex:Thing"],
             &[PropertyFilter::Compare("rdfs:label", "A", "?>=")],
-            false, usize::MAX, 0, Some(&sort),
-        ).unwrap();
+            false,
+            usize::MAX,
+            0,
+            Some(&sort),
+        )
+        .unwrap();
 
         assert_eq!(results, vec!["ex:C", "ex:B", "ex:A"]);
     }
@@ -722,12 +784,20 @@ mod sort_tests {
         insert_type(&conn, "ex:NoLabel", "ex:Thing");
         insert_triple(&conn, "ex:HasLabel", "rdfs:label", "Z");
 
-        let sort = SortSpec { property_iri: "rdfs:label".to_string(), direction: SortDirection::Desc };
+        let sort = SortSpec {
+            property_iri: "rdfs:label".to_string(),
+            direction: SortDirection::Desc,
+        };
         let (results, _) = find_by_class_iris_and_properties_with_options(
-            &conn, &["ex:Thing"],
+            &conn,
+            &["ex:Thing"],
             &[PropertyFilter::Compare("rdf:type", "ex:Thing", "exists")],
-            false, usize::MAX, 0, Some(&sort),
-        ).unwrap();
+            false,
+            usize::MAX,
+            0,
+            Some(&sort),
+        )
+        .unwrap();
 
         assert_eq!(results.last().unwrap(), "ex:NoLabel");
     }
@@ -739,12 +809,20 @@ mod sort_tests {
         insert_type(&conn, "ex:NoLabel", "ex:Thing");
         insert_triple(&conn, "ex:HasLabel", "rdfs:label", "A");
 
-        let sort = SortSpec { property_iri: "rdfs:label".to_string(), direction: SortDirection::Asc };
+        let sort = SortSpec {
+            property_iri: "rdfs:label".to_string(),
+            direction: SortDirection::Asc,
+        };
         let (results, _) = find_by_class_iris_and_properties_with_options(
-            &conn, &["ex:Thing"],
+            &conn,
+            &["ex:Thing"],
             &[PropertyFilter::Compare("rdf:type", "ex:Thing", "exists")],
-            false, usize::MAX, 0, Some(&sort),
-        ).unwrap();
+            false,
+            usize::MAX,
+            0,
+            Some(&sort),
+        )
+        .unwrap();
 
         assert_eq!(results.first().unwrap(), "ex:NoLabel");
     }
@@ -756,10 +834,15 @@ mod sort_tests {
         insert_triple(&conn, "ex:X", "rdfs:label", "X");
 
         let (results, total) = find_by_class_iris_and_properties_with_options(
-            &conn, &["ex:Thing"],
+            &conn,
+            &["ex:Thing"],
             &[PropertyFilter::Compare("rdfs:label", "X", "=")],
-            false, usize::MAX, 0, None,
-        ).unwrap();
+            false,
+            usize::MAX,
+            0,
+            None,
+        )
+        .unwrap();
 
         assert_eq!(total, 1);
         assert_eq!(results, vec!["ex:X"]);
@@ -770,18 +853,33 @@ mod sort_tests {
         let conn = setup_test_db();
         insert_type(&conn, "ex:Early", "ex:Thing");
         insert_type(&conn, "ex:Late", "ex:Thing");
-        insert_triple(&conn, "ex:Early", "foundation:createdAt", "2020-01-01T00:00:00Z");
-        insert_triple(&conn, "ex:Late", "foundation:createdAt", "2025-06-01T00:00:00Z");
+        insert_triple(
+            &conn,
+            "ex:Early",
+            "foundation:createdAt",
+            "2020-01-01T00:00:00Z",
+        );
+        insert_triple(
+            &conn,
+            "ex:Late",
+            "foundation:createdAt",
+            "2025-06-01T00:00:00Z",
+        );
 
         let sort = SortSpec {
             property_iri: "foundation:createdAt".to_string(),
             direction: SortDirection::Asc,
         };
         let (results, _) = find_by_class_iris_and_properties_with_options(
-            &conn, &["ex:Thing"],
+            &conn,
+            &["ex:Thing"],
             &[PropertyFilter::Compare("rdf:type", "ex:Thing", "exists")],
-            false, usize::MAX, 0, Some(&sort),
-        ).unwrap();
+            false,
+            usize::MAX,
+            0,
+            Some(&sort),
+        )
+        .unwrap();
 
         assert_eq!(results, vec!["ex:Early", "ex:Late"]);
     }
@@ -800,7 +898,11 @@ mod filter_tests {
         ) {
             return id;
         }
-        conn.execute("INSERT INTO transactions (origin, created_at) VALUES ('test', 0)", []).unwrap();
+        conn.execute(
+            "INSERT INTO transactions (origin, created_at) VALUES ('test', 0)",
+            [],
+        )
+        .unwrap();
         conn.last_insert_rowid()
     }
 
@@ -842,10 +944,15 @@ mod filter_tests {
         insert_decimal(&conn, "ex:P2", "ex:amount", 200.0);
 
         let (results, total) = find_by_class_iris_and_properties_with_options(
-            &conn, &["ex:Payment"],
+            &conn,
+            &["ex:Payment"],
             &[PropertyFilter::Compare("ex:amount", "128.7", "=")],
-            false, 100, 0, None,
-        ).unwrap();
+            false,
+            100,
+            0,
+            None,
+        )
+        .unwrap();
 
         assert_eq!(total, 1);
         assert!(results.contains(&"ex:P1".to_string()));
@@ -864,14 +971,28 @@ mod filter_tests {
         insert_decimal(&conn, "ex:C", "ex:val", 200.0);
 
         let (results, _) = find_by_class_iris_and_properties_with_options(
-            &conn, &["ex:Thing"],
+            &conn,
+            &["ex:Thing"],
             &[PropertyFilter::Compare("ex:val", "100.0", ">=")],
-            false, 100, 0, None,
-        ).unwrap();
+            false,
+            100,
+            0,
+            None,
+        )
+        .unwrap();
 
-        assert!(!results.contains(&"ex:A".to_string()), "9 < 100, must be excluded");
-        assert!(results.contains(&"ex:B".to_string()), "100 >= 100, must be included");
-        assert!(results.contains(&"ex:C".to_string()), "200 >= 100, must be included");
+        assert!(
+            !results.contains(&"ex:A".to_string()),
+            "9 < 100, must be excluded"
+        );
+        assert!(
+            results.contains(&"ex:B".to_string()),
+            "100 >= 100, must be included"
+        );
+        assert!(
+            results.contains(&"ex:C".to_string()),
+            "200 >= 100, must be included"
+        );
     }
 
     #[test]
@@ -883,10 +1004,15 @@ mod filter_tests {
         insert_integer(&conn, "ex:Y", "ex:count", 99);
 
         let (results, total) = find_by_class_iris_and_properties_with_options(
-            &conn, &["ex:Thing"],
+            &conn,
+            &["ex:Thing"],
             &[PropertyFilter::Compare("ex:count", "42", "=")],
-            false, 100, 0, None,
-        ).unwrap();
+            false,
+            100,
+            0,
+            None,
+        )
+        .unwrap();
 
         assert_eq!(total, 1);
         assert!(results.contains(&"ex:X".to_string()));
@@ -901,10 +1027,15 @@ mod filter_tests {
         insert_type(&conn, "ex:NoProp", "ex:Thing");
 
         let (results, _) = find_by_class_iris_and_properties_with_options(
-            &conn, &["ex:Thing"],
+            &conn,
+            &["ex:Thing"],
             &[PropertyFilter::Compare("ex:amount", "", "exists")],
-            false, 100, 0, None,
-        ).unwrap();
+            false,
+            100,
+            0,
+            None,
+        )
+        .unwrap();
 
         assert!(results.contains(&"ex:WithProp".to_string()));
         assert!(!results.contains(&"ex:NoProp".to_string()));
@@ -918,10 +1049,15 @@ mod filter_tests {
         insert_type(&conn, "ex:NoProp", "ex:Thing");
 
         let (results, _) = find_by_class_iris_and_properties_with_options(
-            &conn, &["ex:Thing"],
+            &conn,
+            &["ex:Thing"],
             &[PropertyFilter::Compare("ex:amount", "", "not_exists")],
-            false, 100, 0, None,
-        ).unwrap();
+            false,
+            100,
+            0,
+            None,
+        )
+        .unwrap();
 
         assert!(!results.contains(&"ex:WithProp".to_string()));
         assert!(results.contains(&"ex:NoProp".to_string()));

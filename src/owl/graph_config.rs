@@ -1,13 +1,12 @@
 use crate::eavto::Connection;
-use crate::owl::{vocabulary, get_literal_property};
+use crate::owl::{get_literal_property, vocabulary};
 
 /// Returns `(class_group, individual_group, literal_group)` from the ontology.
 /// Falls back to the compile-time defaults `(1, 6, 7)` if the ontology data is missing.
 pub fn load_graph_node_groups(conn: &Connection) -> (u8, u8, u8) {
     let configs = get_graph_node_type_config(conn);
-    let group_for = |label: &str| -> Option<u8> {
-        configs.iter().find(|c| c.label == label).map(|c| c.group)
-    };
+    let group_for =
+        |label: &str| -> Option<u8> { configs.iter().find(|c| c.label == label).map(|c| c.group) };
     (
         group_for("Class Node").unwrap_or(1),
         group_for("Individual Node").unwrap_or(6),
@@ -19,7 +18,9 @@ pub fn load_graph_node_groups(conn: &Connection) -> (u8, u8, u8) {
 pub fn get_graph_node_type_config(conn: &Connection) -> Vec<GraphNodeTypeConfig> {
     use crate::eavto::query;
 
-    let Ok(types_result) = query::get_by_predicate_object(conn, vocabulary::rdf::TYPE, "foundation:GraphNodeType") else {
+    let Ok(types_result) =
+        query::get_by_predicate_object(conn, vocabulary::rdf::TYPE, "foundation:GraphNodeType")
+    else {
         return vec![];
     };
 

@@ -1,10 +1,14 @@
-use super::*;
 use super::timestamps::touch;
+use super::*;
 use crate::owl::Property;
 
 /// Generic: returns true if `property_iri` has a triple with `metadata_predicate`.
 /// Used by write hooks to decide whether to trigger recalculation.
-pub(super) fn property_has_metadata(conn: &Connection, property_iri: &str, metadata_predicate: &str) -> Result<bool> {
+pub(super) fn property_has_metadata(
+    conn: &Connection,
+    property_iri: &str,
+    metadata_predicate: &str,
+) -> Result<bool> {
     let result = query::get_by_entity_predicate(conn, property_iri, metadata_predicate)?;
     Ok(!result.triples.is_empty())
 }
@@ -31,7 +35,7 @@ impl Individual {
         class_iri: &str,
         label: &str,
         icon: &str,
-        origin: &str
+        origin: &str,
     ) -> Result<()> {
         crate::owl::check_system_locked(conn, &self.iri, None)?;
         ensure_class_exists(conn, class_iri)?;
@@ -74,11 +78,15 @@ impl Individual {
         let triple = Triple::new(&self.iri, rdf::TYPE, Object::Iri(class_iri.to_string()));
         store::assert_triples(conn, &[triple], origin)?;
 
-        let label_triple = Triple::new(&self.iri, rdfs::LABEL, Object::Literal {
-            value: label.to_string(),
-            datatype: Some("xsd:string".to_string()),
-            language: None,
-        });
+        let label_triple = Triple::new(
+            &self.iri,
+            rdfs::LABEL,
+            Object::Literal {
+                value: label.to_string(),
+                datatype: Some("xsd:string".to_string()),
+                language: None,
+            },
+        );
         store::assert_triples(conn, &[label_triple], origin)?;
 
         touch(conn, &self.iri.clone());
@@ -99,13 +107,13 @@ impl Individual {
         let t_lock = t0.elapsed().as_millis();
 
         if values.is_empty() {
-            return Err(OwlError::InvalidOperation(
-                format!("No values provided for property {}", property)
-            ));
+            return Err(OwlError::InvalidOperation(format!(
+                "No values provided for property {}",
+                property
+            )));
         }
 
-        let is_meta_property = property.starts_with("rdfs:")
-            || property == "foundation:hasIcon";
+        let is_meta_property = property.starts_with("rdfs:") || property == "foundation:hasIcon";
 
         if !is_meta_property {
             if let Ok(true) = property_has_metadata(conn, property, "foundation:formula") {
@@ -121,27 +129,33 @@ impl Individual {
         let t_types = t0.elapsed().as_millis();
 
         if types_result.triples.is_empty() {
-            return Err(OwlError::NotFound(format!("Individual {} has no rdf:type", self.iri)));
+            return Err(OwlError::NotFound(format!(
+                "Individual {} has no rdf:type",
+                self.iri
+            )));
         }
 
-        let subject_is_property_def = types_result.triples.iter()
+        let subject_is_property_def = types_result
+            .triples
+            .iter()
             .filter_map(|t| t.object.as_iri())
             .any(|iri| iri == "owl:DatatypeProperty" || iri == "owl:ObjectProperty");
 
         if !is_meta_property && !subject_is_property_def {
-            let property_is_valid = types_result.triples.iter()
+            let property_is_valid = types_result
+                .triples
+                .iter()
                 .filter_map(|t| t.object.as_iri())
                 .any(|class_iri| Class::has_property(conn, class_iri, property));
 
             if !property_is_valid {
-                let individual_class = types_result.triples.first()
+                let individual_class = types_result
+                    .triples
+                    .first()
                     .and_then(|t| t.object.as_iri())
                     .unwrap_or("unknown");
 
-                let property_exists = Property::get(conn, property)
-                    .ok()
-                    .flatten()
-                    .is_some();
+                let property_exists = Property::get(conn, property).ok().flatten().is_some();
 
                 if !property_exists {
                     let local_name = property.split(':').last().unwrap_or(property);
@@ -150,14 +164,22 @@ impl Individual {
                     } else {
                         String::new()
                     };
-                    return Err(OwlError::NotFound(
-                        format!("Property not found: {}.{}", property, hint)
-                    ));
+                    return Err(OwlError::NotFound(format!(
+                        "Property not found: {}.{}",
+                        property, hint
+                    )));
                 }
 
-                let domains: Vec<String> = query::get_by_entity_predicate(conn, property, "rdfs:domain")
-                    .map(|r| r.triples.iter().filter_map(|t| t.object.as_iri()).map(String::from).collect())
-                    .unwrap_or_default();
+                let domains: Vec<String> =
+                    query::get_by_entity_predicate(conn, property, "rdfs:domain")
+                        .map(|r| {
+                            r.triples
+                                .iter()
+                                .filter_map(|t| t.object.as_iri())
+                                .map(String::from)
+                                .collect()
+                        })
+                        .unwrap_or_default();
                 let domain_hint = if domains.is_empty() {
                     " (no domain defined)".to_string()
                 } else {
@@ -195,11 +217,12 @@ impl Individual {
             conn,
             &self.iri,
             property,
-            values.len()
+            values.len(),
         )?;
         let t_cardinality = t0.elapsed().as_millis();
 
-        let triples: Vec<Triple> = values.into_iter()
+        let triples: Vec<Triple> = values
+            .into_iter()
             .map(|v| Triple::new(&self.iri, property, v))
             .collect();
         store::assert_triples(conn, &triples, origin)?;
@@ -231,13 +254,13 @@ impl Individual {
     ) -> Result<()> {
         crate::owl::check_system_locked(conn, &self.iri, Some(property))?;
         if values.is_empty() {
-            return Err(OwlError::InvalidOperation(
-                format!("No values provided for property {}", property)
-            ));
+            return Err(OwlError::InvalidOperation(format!(
+                "No values provided for property {}",
+                property
+            )));
         }
 
-        let is_meta_property = property.starts_with("rdfs:")
-            || property == "foundation:hasIcon";
+        let is_meta_property = property.starts_with("rdfs:") || property == "foundation:hasIcon";
 
         if !is_meta_property {
             if let Ok(true) = property_has_metadata(conn, property, "foundation:formula") {
@@ -257,23 +280,27 @@ impl Individual {
         let types_result = query::get_by_entity_predicate(conn, &self.iri, rdf::TYPE)?;
 
         if types_result.triples.is_empty() {
-            return Err(OwlError::NotFound(format!("Individual {} has no rdf:type", self.iri)));
+            return Err(OwlError::NotFound(format!(
+                "Individual {} has no rdf:type",
+                self.iri
+            )));
         }
 
         if !is_meta_property {
-            let property_is_valid = types_result.triples.iter()
+            let property_is_valid = types_result
+                .triples
+                .iter()
                 .filter_map(|t| t.object.as_iri())
                 .any(|class_iri| Class::has_property(conn, class_iri, property));
 
             if !property_is_valid {
-                let individual_class = types_result.triples.first()
+                let individual_class = types_result
+                    .triples
+                    .first()
                     .and_then(|t| t.object.as_iri())
                     .unwrap_or("unknown");
 
-                let property_exists = Property::get(conn, property)
-                    .ok()
-                    .flatten()
-                    .is_some();
+                let property_exists = Property::get(conn, property).ok().flatten().is_some();
 
                 if !property_exists {
                     let local_name = property.split(':').last().unwrap_or(property);
@@ -282,14 +309,22 @@ impl Individual {
                     } else {
                         String::new()
                     };
-                    return Err(OwlError::NotFound(
-                        format!("Property not found: {}.{}", property, hint)
-                    ));
+                    return Err(OwlError::NotFound(format!(
+                        "Property not found: {}.{}",
+                        property, hint
+                    )));
                 }
 
-                let domains: Vec<String> = query::get_by_entity_predicate(conn, property, "rdfs:domain")
-                    .map(|r| r.triples.iter().filter_map(|t| t.object.as_iri()).map(String::from).collect())
-                    .unwrap_or_default();
+                let domains: Vec<String> =
+                    query::get_by_entity_predicate(conn, property, "rdfs:domain")
+                        .map(|r| {
+                            r.triples
+                                .iter()
+                                .filter_map(|t| t.object.as_iri())
+                                .map(String::from)
+                                .collect()
+                        })
+                        .unwrap_or_default();
                 let domain_hint = if domains.is_empty() {
                     " (no domain defined)".to_string()
                 } else {
@@ -329,7 +364,8 @@ impl Individual {
             current_count + values.len(),
         )?;
 
-        let triples: Vec<Triple> = values.into_iter()
+        let triples: Vec<Triple> = values
+            .into_iter()
             .map(|v| Triple::new(&self.iri, property, v))
             .collect();
         store::append_triples(conn, &triples, origin)?;
@@ -344,54 +380,62 @@ impl Individual {
     pub fn serializable_properties(&self, conn: &Connection) -> Vec<serde_json::Value> {
         use crate::owl::{Property, PropertyClassification};
 
-        self.properties.iter().map(|(prop_iri, value)| {
-            let prop = Property::get(conn, prop_iri).ok().flatten();
-            let unit = prop.as_ref().and_then(|p| p.unit.clone());
+        self.properties
+            .iter()
+            .map(|(prop_iri, value)| {
+                let prop = Property::get(conn, prop_iri).ok().flatten();
+                let unit = prop.as_ref().and_then(|p| p.unit.clone());
 
-            let property_type_str: &str = match prop.as_ref() {
-                Some(p) => p.classification().as_str(),
-                None => match value {
-                    Object::Iri(_) | Object::Blank(_) => PropertyClassification::Reference.as_str(),
-                    _ => PropertyClassification::Value.as_str(),
-                },
-            };
+                let property_type_str: &str = match prop.as_ref() {
+                    Some(p) => p.classification().as_str(),
+                    None => match value {
+                        Object::Iri(_) | Object::Blank(_) => {
+                            PropertyClassification::Reference.as_str()
+                        }
+                        _ => PropertyClassification::Value.as_str(),
+                    },
+                };
 
-            let json_value: serde_json::Value = match value {
-                Object::Integer(i) => serde_json::json!(i),
-                Object::Number(n) => serde_json::json!(n),
-                Object::Boolean(b) => serde_json::json!(b),
-                Object::Literal { value: v, datatype: Some(dt), .. }
-                    if matches!(dt.as_str(), "xsd:decimal" | "xsd:float" | "xsd:double") =>
-                {
-                    v.parse::<f64>()
+                let json_value: serde_json::Value = match value {
+                    Object::Integer(i) => serde_json::json!(i),
+                    Object::Number(n) => serde_json::json!(n),
+                    Object::Boolean(b) => serde_json::json!(b),
+                    Object::Literal {
+                        value: v,
+                        datatype: Some(dt),
+                        ..
+                    } if matches!(dt.as_str(), "xsd:decimal" | "xsd:float" | "xsd:double") => v
+                        .parse::<f64>()
                         .map(|n| serde_json::json!(n))
-                        .unwrap_or_else(|_| serde_json::json!(v))
-                }
-                Object::Literal { value: v, datatype: Some(dt), .. }
-                    if dt.as_str() == "xsd:integer" =>
-                {
-                    v.parse::<i64>()
+                        .unwrap_or_else(|_| serde_json::json!(v)),
+                    Object::Literal {
+                        value: v,
+                        datatype: Some(dt),
+                        ..
+                    } if dt.as_str() == "xsd:integer" => v
+                        .parse::<i64>()
                         .map(|n| serde_json::json!(n))
-                        .unwrap_or_else(|_| serde_json::json!(v))
-                }
-                _ => {
-                    let s = value.as_literal()
-                        .or_else(|| value.as_iri().map(|s| s.to_string()))
-                        .unwrap_or_default();
-                    serde_json::json!(s)
-                }
-            };
+                        .unwrap_or_else(|_| serde_json::json!(v)),
+                    _ => {
+                        let s = value
+                            .as_literal()
+                            .or_else(|| value.as_iri().map(|s| s.to_string()))
+                            .unwrap_or_default();
+                        serde_json::json!(s)
+                    }
+                };
 
-            let mut entry = serde_json::json!({
-                "property": prop_iri,
-                "value": json_value,
-                "propertyType": property_type_str,
-            });
-            if let Some(unit_iri) = unit {
-                entry["unit"] = serde_json::json!(unit_iri);
-            }
-            entry
-        }).collect()
+                let mut entry = serde_json::json!({
+                    "property": prop_iri,
+                    "value": json_value,
+                    "propertyType": property_type_str,
+                });
+                if let Some(unit_iri) = unit {
+                    entry["unit"] = serde_json::json!(unit_iri);
+                }
+                entry
+            })
+            .collect()
     }
 
     pub fn remove_property_value(
@@ -415,14 +459,16 @@ impl Individual {
                     } else {
                         n.to_string() == value_str
                     }
-                },
+                }
                 Object::Boolean(b) => b.to_string() == value_str,
                 Object::DateTime(rfc3339) => rfc3339.as_str() == value_str,
             };
             if matches {
                 let found = triple.object.clone();
                 store::retract_triples(
-                    conn, &[Triple::new(iri, property_iri, triple.object)], origin,
+                    conn,
+                    &[Triple::new(iri, property_iri, triple.object)],
+                    origin,
                 )?;
                 if property_iri != super::timestamps::LAST_UPDATED_AT {
                     touch(conn, iri);
@@ -467,7 +513,9 @@ impl Individual {
     ) -> Result<()> {
         crate::owl::check_system_locked(conn, iri, Some(property_iri))?;
         let existing = query::get_by_entity_predicate(conn, iri, property_iri)?;
-        let already_exists = existing.triples.iter()
+        let already_exists = existing
+            .triples
+            .iter()
             .any(|t| t.object.as_iri() == Some(value_iri));
         if already_exists {
             return Ok(());
@@ -489,7 +537,9 @@ impl Individual {
     ) -> Result<()> {
         crate::owl::check_system_locked(conn, iri, Some(property_iri))?;
         let result = query::get_by_entity_predicate(conn, iri, property_iri)?;
-        let to_retract: Vec<Triple> = result.triples.into_iter()
+        let to_retract: Vec<Triple> = result
+            .triples
+            .into_iter()
             .filter(|t| t.object.as_iri() == Some(value_iri))
             .map(|t| Triple::new(t.subject.as_str(), t.predicate.as_str(), t.object.clone()))
             .collect();
@@ -502,11 +552,16 @@ impl Individual {
 
     pub fn get_retracted_properties(conn: &Connection, iri: &str) -> Result<Vec<Triple>> {
         query::get_retracted_by_entity(conn, iri)
-            .map(|r| r.triples.into_iter().filter(|t| {
-                t.predicate != "rdfs:label"
-                    && t.predicate != "rdfs:comment"
-                    && t.predicate != "foundation:hasIcon"
-            }).collect())
+            .map(|r| {
+                r.triples
+                    .into_iter()
+                    .filter(|t| {
+                        t.predicate != "rdfs:label"
+                            && t.predicate != "rdfs:comment"
+                            && t.predicate != "foundation:hasIcon"
+                    })
+                    .collect()
+            })
             .map_err(|e| OwlError::DatabaseError(e.to_string()))
     }
 }

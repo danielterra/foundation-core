@@ -3,13 +3,15 @@ use std::sync::Mutex;
 
 use rusqlite::Connection;
 use tantivy::{
-    DocId, Score, SegmentReader,
-    Index, IndexWriter, IndexReader, ReloadPolicy, TantivyDocument,
     collector::TopDocs,
     merge_policy::LogMergePolicy,
     query::{AllQuery, BooleanQuery, Occur, Query, QueryParser, TermQuery},
-    schema::{Field, IndexRecordOption, Schema, TextFieldIndexing, TextOptions, Value, STRING, STORED, TEXT, FAST},
+    schema::{
+        Field, IndexRecordOption, Schema, TextFieldIndexing, TextOptions, Value, FAST, STORED,
+        STRING, TEXT,
+    },
     tokenizer::{LowerCaser, NgramTokenizer, TextAnalyzer},
+    DocId, Index, IndexReader, IndexWriter, ReloadPolicy, Score, SegmentReader, TantivyDocument,
     Term,
 };
 
@@ -40,25 +42,45 @@ lazy_static::lazy_static! {
 
 const NGRAM_TOKENIZER_NAME: &str = "ngram_label";
 
-fn build_schema() -> (Schema, Field, Field, Field, Field, Field, Field, Field, Field, Field) {
+fn build_schema() -> (
+    Schema,
+    Field,
+    Field,
+    Field,
+    Field,
+    Field,
+    Field,
+    Field,
+    Field,
+    Field,
+) {
     let mut b = Schema::builder();
-    let f_iri       = b.add_text_field("iri",       STRING | STORED);
-    let label_opts  = TextOptions::default()
-        .set_stored()
-        .set_indexing_options(
-            TextFieldIndexing::default()
-                .set_tokenizer(NGRAM_TOKENIZER_NAME)
-                .set_index_option(IndexRecordOption::WithFreqsAndPositions),
-        );
-    let f_label     = b.add_text_field("label", label_opts);
-    let f_comment   = b.add_text_field("comment",   TEXT);
-    let f_props     = b.add_text_field("props",     TEXT);
-    let f_content   = b.add_text_field("content",   TEXT);
-    let f_concept   = b.add_text_field("concept",   STRING);
-    let f_is_class  = b.add_text_field("is_class",  STRING);
-    let f_boost     = b.add_u64_field("boost",      FAST   | STORED);
-    let f_completed = b.add_u64_field("completed",  FAST);
-    (b.build(), f_iri, f_label, f_comment, f_props, f_content, f_concept, f_is_class, f_boost, f_completed)
+    let f_iri = b.add_text_field("iri", STRING | STORED);
+    let label_opts = TextOptions::default().set_stored().set_indexing_options(
+        TextFieldIndexing::default()
+            .set_tokenizer(NGRAM_TOKENIZER_NAME)
+            .set_index_option(IndexRecordOption::WithFreqsAndPositions),
+    );
+    let f_label = b.add_text_field("label", label_opts);
+    let f_comment = b.add_text_field("comment", TEXT);
+    let f_props = b.add_text_field("props", TEXT);
+    let f_content = b.add_text_field("content", TEXT);
+    let f_concept = b.add_text_field("concept", STRING);
+    let f_is_class = b.add_text_field("is_class", STRING);
+    let f_boost = b.add_u64_field("boost", FAST | STORED);
+    let f_completed = b.add_u64_field("completed", FAST);
+    (
+        b.build(),
+        f_iri,
+        f_label,
+        f_comment,
+        f_props,
+        f_content,
+        f_concept,
+        f_is_class,
+        f_boost,
+        f_completed,
+    )
 }
 
 pub fn ensure_access_table(conn: &Connection) -> Result<(), rusqlite::Error> {
@@ -66,7 +88,7 @@ pub fn ensure_access_table(conn: &Connection) -> Result<(), rusqlite::Error> {
         "CREATE TABLE IF NOT EXISTS entity_access_count (
             iri   TEXT PRIMARY KEY,
             count INTEGER NOT NULL DEFAULT 0
-        );"
+        );",
     )
 }
 
@@ -90,16 +112,18 @@ fn get_access_count(conn: &Connection, iri: &str) -> u64 {
 }
 
 fn get_class_iris(conn: &Connection, subject: &str) -> Vec<String> {
-    let direct: Option<String> = conn.query_row(
-        "SELECT object FROM triples
+    let direct: Option<String> = conn
+        .query_row(
+            "SELECT object FROM triples
          WHERE subject = ?1 AND retracted = 0 AND predicate = 'rdf:type'
            AND object NOT LIKE 'owl:%'
            AND object NOT LIKE 'rdf:%'
            AND object NOT LIKE 'rdfs:%'
          LIMIT 1",
-        [subject],
-        |row| row.get(0),
-    ).ok();
+            [subject],
+            |row| row.get(0),
+        )
+        .ok();
 
     let Some(root) = direct else { return vec![] };
 
@@ -134,14 +158,27 @@ pub fn init(index_dir: &Path, conn: &Connection) {
         return;
     }
     let t0 = std::time::Instant::now();
-    log_backend("info", &format!("[SEARCH] Initializing index at {:?}", index_dir));
+    log_backend(
+        "info",
+        &format!("[SEARCH] Initializing index at {:?}", index_dir),
+    );
     match do_init(index_dir, conn) {
         Ok(idx) => {
             *guard = Some(idx);
-            log_backend("info", &format!("[SEARCH] Index ready in {}ms", t0.elapsed().as_millis()));
+            log_backend(
+                "info",
+                &format!("[SEARCH] Index ready in {}ms", t0.elapsed().as_millis()),
+            );
         }
         Err(e) => {
-            log_backend("error", &format!("[SEARCH] Init failed after {}ms: {}", t0.elapsed().as_millis(), e));
+            log_backend(
+                "error",
+                &format!(
+                    "[SEARCH] Init failed after {}ms: {}",
+                    t0.elapsed().as_millis(),
+                    e
+                ),
+            );
         }
     }
 }
@@ -149,18 +186,38 @@ pub fn init(index_dir: &Path, conn: &Connection) {
 fn do_init(index_dir: &Path, conn: &Connection) -> Result<SearchIndex, Box<dyn std::error::Error>> {
     for attempt in 0u8..2 {
         if attempt > 0 {
-            log_backend("warn", "[SEARCH] Corrupt index — wiping and rebuilding from scratch");
+            log_backend(
+                "warn",
+                "[SEARCH] Corrupt index — wiping and rebuilding from scratch",
+            );
             std::fs::remove_dir_all(index_dir).ok();
         }
         let t = std::time::Instant::now();
-        log_backend("info", &format!("[SEARCH] attempt {} — try_open_index", attempt + 1));
+        log_backend(
+            "info",
+            &format!("[SEARCH] attempt {} — try_open_index", attempt + 1),
+        );
         match try_open_index(index_dir, conn) {
             Ok(idx) => {
-                log_backend("info", &format!("[SEARCH] attempt {} succeeded in {}ms", attempt + 1, t.elapsed().as_millis()));
+                log_backend(
+                    "info",
+                    &format!(
+                        "[SEARCH] attempt {} succeeded in {}ms",
+                        attempt + 1,
+                        t.elapsed().as_millis()
+                    ),
+                );
                 return Ok(idx);
             }
             Err(e) if attempt == 0 => {
-                log_backend("warn", &format!("[SEARCH] attempt 1 failed after {}ms: {} — retrying", t.elapsed().as_millis(), e));
+                log_backend(
+                    "warn",
+                    &format!(
+                        "[SEARCH] attempt 1 failed after {}ms: {} — retrying",
+                        t.elapsed().as_millis(),
+                        e
+                    ),
+                );
             }
             Err(e) => return Err(e),
         }
@@ -168,20 +225,49 @@ fn do_init(index_dir: &Path, conn: &Connection) -> Result<SearchIndex, Box<dyn s
     unreachable!()
 }
 
-fn try_open_index(index_dir: &Path, conn: &Connection) -> Result<SearchIndex, Box<dyn std::error::Error>> {
-    let (schema, f_iri, f_label, f_comment, f_props, f_content, f_concept, f_is_class, f_boost, f_completed) = build_schema();
+fn try_open_index(
+    index_dir: &Path,
+    conn: &Connection,
+) -> Result<SearchIndex, Box<dyn std::error::Error>> {
+    let (
+        schema,
+        f_iri,
+        f_label,
+        f_comment,
+        f_props,
+        f_content,
+        f_concept,
+        f_is_class,
+        f_boost,
+        f_completed,
+    ) = build_schema();
 
     let t = std::time::Instant::now();
     let meta_json = index_dir.join("meta.json");
     let (index, needs_rebuild) = if meta_json.exists() {
         // meta.json present: directory holds a previously written index — safe to open.
-        log_backend("info", &format!("[SEARCH] meta.json found, opening index at {:?}", index_dir));
+        log_backend(
+            "info",
+            &format!("[SEARCH] meta.json found, opening index at {:?}", index_dir),
+        );
         let existing = Index::open_in_dir(index_dir)?;
         if existing.schema() == schema {
-            log_backend("info", &format!("[SEARCH] open_in_dir OK, schema matches ({}ms)", t.elapsed().as_millis()));
+            log_backend(
+                "info",
+                &format!(
+                    "[SEARCH] open_in_dir OK, schema matches ({}ms)",
+                    t.elapsed().as_millis()
+                ),
+            );
             (existing, false)
         } else {
-            log_backend("warn", &format!("[SEARCH] Schema mismatch — recreating ({}ms)", t.elapsed().as_millis()));
+            log_backend(
+                "warn",
+                &format!(
+                    "[SEARCH] Schema mismatch — recreating ({}ms)",
+                    t.elapsed().as_millis()
+                ),
+            );
             // Drop the Index to release MmapDirectory handles before removing on Windows.
             drop(existing);
             std::fs::remove_dir_all(index_dir)?;
@@ -205,23 +291,57 @@ fn try_open_index(index_dir: &Path, conn: &Connection) -> Result<SearchIndex, Bo
             .build(),
     );
 
-    log_backend("info", &format!("[SEARCH] Acquiring writer ({}ms)", t.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!("[SEARCH] Acquiring writer ({}ms)", t.elapsed().as_millis()),
+    );
     let writer: IndexWriter = index.writer(WRITER_HEAP_BYTES)?;
     writer.set_merge_policy(Box::new(LogMergePolicy::default()));
-    log_backend("info", &format!("[SEARCH] Writer ready ({}ms)", t.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!("[SEARCH] Writer ready ({}ms)", t.elapsed().as_millis()),
+    );
 
     let seg_count = index.searchable_segment_ids()?.len();
-    log_backend("info", &format!("[SEARCH] Segment count: {} ({}ms)", seg_count, t.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!(
+            "[SEARCH] Segment count: {} ({}ms)",
+            seg_count,
+            t.elapsed().as_millis()
+        ),
+    );
 
-    log_backend("info", &format!("[SEARCH] Building reader ({}ms)", t.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!("[SEARCH] Building reader ({}ms)", t.elapsed().as_millis()),
+    );
     let reader = index
         .reader_builder()
         .reload_policy(ReloadPolicy::Manual)
         .try_into()?;
-    log_backend("info", &format!("[SEARCH] Reader ready, needs_rebuild={} ({}ms)", needs_rebuild, t.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!(
+            "[SEARCH] Reader ready, needs_rebuild={} ({}ms)",
+            needs_rebuild,
+            t.elapsed().as_millis()
+        ),
+    );
 
     let mut idx = SearchIndex {
-        index, writer, reader, f_iri, f_label, f_comment, f_props, f_content, f_concept, f_is_class, f_boost, f_completed,
+        index,
+        writer,
+        reader,
+        f_iri,
+        f_label,
+        f_comment,
+        f_props,
+        f_content,
+        f_concept,
+        f_is_class,
+        f_boost,
+        f_completed,
     };
 
     if needs_rebuild {
@@ -266,7 +386,14 @@ fn do_full_rebuild(
     let labeled: Vec<String> = stmt
         .query_map([], |row| row.get(0))?
         .collect::<rusqlite::Result<Vec<_>>>()?;
-    log_backend("info", &format!("[SEARCH] Labeled subjects: {} ({}ms)", labeled.len(), t.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!(
+            "[SEARCH] Labeled subjects: {} ({}ms)",
+            labeled.len(),
+            t.elapsed().as_millis()
+        ),
+    );
 
     let mut msg_stmt = conn.prepare(
         "SELECT DISTINCT subject FROM triples WHERE retracted = 0
@@ -275,18 +402,39 @@ fn do_full_rebuild(
     let messages: Vec<String> = msg_stmt
         .query_map([], |row| row.get(0))?
         .collect::<rusqlite::Result<Vec<_>>>()?;
-    log_backend("info", &format!("[SEARCH] Message subjects: {} ({}ms)", messages.len(), t.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!(
+            "[SEARCH] Message subjects: {} ({}ms)",
+            messages.len(),
+            t.elapsed().as_millis()
+        ),
+    );
 
     let mut seen = std::collections::HashSet::new();
-    let subjects: Vec<String> = labeled.into_iter()
+    let subjects: Vec<String> = labeled
+        .into_iter()
         .chain(messages)
         .filter(|s| seen.insert(s.clone()))
         .collect();
 
-    log_backend("info", &format!("[SEARCH] Indexing {} total subjects ({}ms)", subjects.len(), t.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!(
+            "[SEARCH] Indexing {} total subjects ({}ms)",
+            subjects.len(),
+            t.elapsed().as_millis()
+        ),
+    );
 
     let class_iris = fetch_class_iris(conn);
-    log_backend("info", &format!("[SEARCH] Class IRI fetch done ({}ms)", t.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!(
+            "[SEARCH] Class IRI fetch done ({}ms)",
+            t.elapsed().as_millis()
+        ),
+    );
 
     idx.writer.delete_all_documents()?;
 
@@ -296,14 +444,34 @@ fn do_full_rebuild(
             idx.writer.add_document(doc)?;
         }
         if i > 0 && i % 1000 == 0 {
-            log_backend("info", &format!("[SEARCH] Indexed {}/{} subjects ({}ms)", i, subjects.len(), t.elapsed().as_millis()));
+            log_backend(
+                "info",
+                &format!(
+                    "[SEARCH] Indexed {}/{} subjects ({}ms)",
+                    i,
+                    subjects.len(),
+                    t.elapsed().as_millis()
+                ),
+            );
         }
     }
-    log_backend("info", &format!("[SEARCH] All documents added, committing ({}ms)", t.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!(
+            "[SEARCH] All documents added, committing ({}ms)",
+            t.elapsed().as_millis()
+        ),
+    );
 
     idx.writer.commit()?;
     idx.reader.reload()?;
-    log_backend("info", &format!("[SEARCH] Full rebuild complete in {}ms", t.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!(
+            "[SEARCH] Full rebuild complete in {}ms",
+            t.elapsed().as_millis()
+        ),
+    );
     Ok(())
 }
 
@@ -335,15 +503,18 @@ fn is_completed_status(conn: &Connection, status_iri: &str) -> bool {
 }
 
 fn subject_is_class(conn: &Connection, subject: &str) -> bool {
-    let has_instance_type: bool = conn.query_row(
-        "SELECT COUNT(*) FROM triples
+    let has_instance_type: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM triples
          WHERE subject = ?1 AND retracted = 0 AND predicate = 'rdf:type'
            AND object NOT LIKE 'owl:%'
            AND object NOT LIKE 'rdf:%'
            AND object NOT LIKE 'rdfs:%'",
-        [subject],
-        |row| row.get::<_, i64>(0),
-    ).map(|c| c > 0).unwrap_or(false);
+            [subject],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|c| c > 0)
+        .unwrap_or(false);
 
     if has_instance_type {
         return false;
@@ -359,21 +530,29 @@ fn subject_is_class(conn: &Connection, subject: &str) -> bool {
 }
 
 fn subject_is_completed(conn: &Connection, subject: &str) -> bool {
-    let status_iri = conn.query_row(
-        "SELECT object FROM triples
+    let status_iri = conn
+        .query_row(
+            "SELECT object FROM triples
          WHERE subject = ?1 AND predicate = 'foundation:hasStatus' AND retracted = 0 LIMIT 1",
-        [subject],
-        |row| row.get::<_, String>(0),
-    ).ok();
+            [subject],
+            |row| row.get::<_, String>(0),
+        )
+        .ok();
     match status_iri {
         Some(iri) => is_completed_status(conn, &iri),
         None => false,
     }
 }
 
-fn build_document(idx: &SearchIndex, conn: &Connection, subject: &str, is_class: bool) -> Option<TantivyDocument> {
-    let mut stmt = conn.prepare(
-        "SELECT predicate, object_value
+fn build_document(
+    idx: &SearchIndex,
+    conn: &Connection,
+    subject: &str,
+    is_class: bool,
+) -> Option<TantivyDocument> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT predicate, object_value
          FROM triples
          WHERE subject = ? AND retracted = 0
            AND object_type = 'literal'
@@ -384,7 +563,8 @@ fn build_document(idx: &SearchIndex, conn: &Connection, subject: &str, is_class:
                'foundation:receiver',
                'foundation:sentAt'
            )",
-    ).ok()?;
+        )
+        .ok()?;
 
     let rows: Vec<(String, String)> = stmt
         .query_map([subject], |row| Ok((row.get(0)?, row.get(1)?)))
@@ -400,10 +580,10 @@ fn build_document(idx: &SearchIndex, conn: &Connection, subject: &str, is_class:
 
     for (predicate, value) in &rows {
         match predicate.as_str() {
-            "rdfs:label"         => label       = value.clone(),
-            "rdfs:comment"       => comment     = value.clone(),
+            "rdfs:label" => label = value.clone(),
+            "rdfs:comment" => comment = value.clone(),
             "foundation:content" => content_raw = value.clone(),
-            _                    => props.push(value.clone()),
+            _ => props.push(value.clone()),
         }
     }
 
@@ -420,25 +600,35 @@ fn build_document(idx: &SearchIndex, conn: &Connection, subject: &str, is_class:
            )",
     ) {
         let iri_rows: Vec<(String, String)> = iri_stmt
-            .query_map([subject], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .query_map([subject], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
             .map(|rows| rows.filter_map(|r| r.ok()).collect())
             .unwrap_or_default();
 
         for (predicate, obj_iri) in &iri_rows {
-            let pred_label: Option<String> = conn.query_row(
-                "SELECT object_value FROM triples \
+            let pred_label: Option<String> = conn
+                .query_row(
+                    "SELECT object_value FROM triples \
                  WHERE subject = ?1 AND predicate = 'rdfs:label' AND retracted = 0 LIMIT 1",
-                [predicate.as_str()],
-                |row| row.get(0),
-            ).ok();
-            let obj_label: Option<String> = conn.query_row(
-                "SELECT object_value FROM triples \
+                    [predicate.as_str()],
+                    |row| row.get(0),
+                )
+                .ok();
+            let obj_label: Option<String> = conn
+                .query_row(
+                    "SELECT object_value FROM triples \
                  WHERE subject = ?1 AND predicate = 'rdfs:label' AND retracted = 0 LIMIT 1",
-                [obj_iri.as_str()],
-                |row| row.get(0),
-            ).ok();
-            if let Some(l) = pred_label { props.push(l); }
-            if let Some(l) = obj_label  { props.push(l); }
+                    [obj_iri.as_str()],
+                    |row| row.get(0),
+                )
+                .ok();
+            if let Some(l) = pred_label {
+                props.push(l);
+            }
+            if let Some(l) = obj_label {
+                props.push(l);
+            }
         }
     }
 
@@ -483,7 +673,8 @@ fn build_document(idx: &SearchIndex, conn: &Connection, subject: &str, is_class:
 fn extract_content_text(raw: &str) -> String {
     if let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) {
         if let Some(arr) = value.as_array() {
-            let text: String = arr.iter()
+            let text: String = arr
+                .iter()
                 .filter_map(|b| b.get("text")?.as_str())
                 .collect::<Vec<_>>()
                 .join(" ");
@@ -546,7 +737,10 @@ pub fn reindex_subjects(conn: &Connection, subjects: &[String]) {
         let is_class = subject_is_class(conn, subject);
         if let Some(doc) = build_document(idx, conn, subject, is_class) {
             if let Err(e) = idx.writer.add_document(doc) {
-                log_backend("warn", &format!("Search index: failed to add {}: {}", subject, e));
+                log_backend(
+                    "warn",
+                    &format!("Search index: failed to add {}: {}", subject, e),
+                );
             }
         }
     }
@@ -567,7 +761,11 @@ pub fn search(query: &str, class_iri: Option<&str>, limit: usize) -> Vec<String>
         .collect()
 }
 
-pub fn search_with_scores(query: &str, class_iri: Option<&str>, limit: usize) -> Vec<(String, f32)> {
+pub fn search_with_scores(
+    query: &str,
+    class_iri: Option<&str>,
+    limit: usize,
+) -> Vec<(String, f32)> {
     if query.trim().is_empty() {
         return vec![];
     }
@@ -614,22 +812,27 @@ pub fn search_with_scores(query: &str, class_iri: Option<&str>, limit: usize) ->
     };
 
     let fetch_limit = (limit * 3).max(50);
-    let top_docs_collector = TopDocs::with_limit(fetch_limit).tweak_score(
-        move |seg_reader: &SegmentReader| {
-            let boost_col     = seg_reader.fast_fields().u64("boost").ok();
+    let top_docs_collector =
+        TopDocs::with_limit(fetch_limit).tweak_score(move |seg_reader: &SegmentReader| {
+            let boost_col = seg_reader.fast_fields().u64("boost").ok();
             let completed_col = seg_reader.fast_fields().u64("completed").ok();
             move |doc: DocId, score: Score| {
-                let count = boost_col.as_ref()
+                let count = boost_col
+                    .as_ref()
                     .and_then(|col| col.first(doc))
                     .unwrap_or(0);
-                let is_completed = completed_col.as_ref()
+                let is_completed = completed_col
+                    .as_ref()
                     .and_then(|col| col.first(doc))
                     .unwrap_or(0);
                 let boosted = score * (1.0 + (count as f32).ln_1p() * ACCESS_BOOST_WEIGHT);
-                if is_completed > 0 { boosted * COMPLETED_PENALTY } else { boosted }
+                if is_completed > 0 {
+                    boosted * COMPLETED_PENALTY
+                } else {
+                    boosted
+                }
             }
-        }
-    );
+        });
 
     let top_docs = match searcher.search(final_query.as_ref(), &top_docs_collector) {
         Ok(docs) => docs,
@@ -642,10 +845,12 @@ pub fn search_with_scores(query: &str, class_iri: Option<&str>, limit: usize) ->
         .into_iter()
         .filter_map(|(score, addr)| {
             let doc: TantivyDocument = searcher.doc(addr).ok()?;
-            let iri = doc.get_first(idx.f_iri)
+            let iri = doc
+                .get_first(idx.f_iri)
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())?;
-            let label = doc.get_first(idx.f_label)
+            let label = doc
+                .get_first(idx.f_label)
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             let final_score = if label.trim().to_lowercase() == query_lower {
@@ -690,20 +895,21 @@ pub fn search_all(class_iri: Option<&str>, limit: usize) -> Vec<String> {
         None => Box::new(AllQuery),
     };
 
-    let top_docs_collector = TopDocs::with_limit(limit).tweak_score(
-        move |seg_reader: &SegmentReader| {
+    let top_docs_collector =
+        TopDocs::with_limit(limit).tweak_score(move |seg_reader: &SegmentReader| {
             let boost_col = seg_reader.fast_fields().u64("boost").ok();
             move |doc: DocId, score: Score| {
-                let count = boost_col.as_ref()
+                let count = boost_col
+                    .as_ref()
                     .and_then(|col| col.first(doc))
                     .unwrap_or(0);
                 score * (1.0 + (count as f32).ln_1p() * ACCESS_BOOST_WEIGHT)
             }
-        }
-    );
+        });
 
     match searcher.search(final_query.as_ref(), &top_docs_collector) {
-        Ok(top_docs) => top_docs.into_iter()
+        Ok(top_docs) => top_docs
+            .into_iter()
             .filter_map(|(_, addr)| {
                 let doc: TantivyDocument = searcher.doc(addr).ok()?;
                 doc.get_first(idx.f_iri)
@@ -731,10 +937,7 @@ pub fn search_concepts_with_scores(query: &str, limit: usize) -> Vec<(String, f3
 
     let searcher = idx.reader.searcher();
 
-    let mut parser = QueryParser::for_index(
-        &idx.index,
-        vec![idx.f_label, idx.f_comment],
-    );
+    let mut parser = QueryParser::for_index(&idx.index, vec![idx.f_label, idx.f_comment]);
     parser.set_field_boost(idx.f_label, 3.0);
     parser.set_field_boost(idx.f_comment, 1.5);
 
@@ -766,7 +969,8 @@ pub fn search_concepts_with_scores(query: &str, limit: usize) -> Vec<(String, f3
         .into_iter()
         .filter_map(|(score, addr)| {
             let doc: TantivyDocument = searcher.doc(addr).ok()?;
-            let iri = doc.get_first(idx.f_iri)
+            let iri = doc
+                .get_first(idx.f_iri)
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())?;
             Some((iri, score))
@@ -801,7 +1005,11 @@ fn sanitize_query(query: &str) -> String {
             .split_whitespace()
             .map(|t| {
                 let clean = t.replace('"', "");
-                if clean.is_empty() { String::new() } else { format!("\"{}\"", clean) }
+                if clean.is_empty() {
+                    String::new()
+                } else {
+                    format!("\"{}\"", clean)
+                }
             })
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>()

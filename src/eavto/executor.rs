@@ -19,12 +19,12 @@
 // - All operations are async to avoid blocking the caller's async runtime
 // ============================================================================
 
+use crate::eavto::store::WrittenTriple;
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tokio::sync::{mpsc, oneshot, Semaphore, OwnedSemaphorePermit};
-use crate::eavto::store::WrittenTriple;
+use tokio::sync::{mpsc, oneshot, OwnedSemaphorePermit, Semaphore};
 
 const WAL_TRUNCATE_INTERVAL: u32 = 200;
 const WAL_PASSIVE_INTERVAL: u32 = 50;
@@ -48,7 +48,13 @@ pub struct DbExecutor {
     write_tx: mpsc::UnboundedSender<WriteTask>,
     db_path: PathBuf,
     /// Sends (subject_predicates, iri_objects, written_triples) written by each transaction so callers can emit events.
-    notify_tx: Option<mpsc::UnboundedSender<(HashMap<String, Vec<String>>, Vec<String>, Vec<WrittenTriple>)>>,
+    notify_tx: Option<
+        mpsc::UnboundedSender<(
+            HashMap<String, Vec<String>>,
+            Vec<String>,
+            Vec<WrittenTriple>,
+        )>,
+    >,
     read_pool: Arc<Mutex<Vec<Connection>>>,
     /// Limits concurrent reads to pool capacity — callers wait here instead of
     /// opening unbounded temporary connections.
@@ -68,6 +74,7 @@ pub struct DbExecutor {
 struct WriteTask {
     operation: Box<dyn FnOnce(&mut Connection) -> Result<String, String> + Send>,
     result_tx: oneshot::Sender<Result<String, String>>,
+    enqueued_at: std::time::Instant,
 }
 
 fn open_pool_connection(db_path: &PathBuf) -> Option<Connection> {
@@ -89,7 +96,13 @@ impl DbExecutor {
     pub fn new_with_notify(
         conn: Connection,
         db_path: PathBuf,
-        notify_tx: Option<mpsc::UnboundedSender<(HashMap<String, Vec<String>>, Vec<String>, Vec<WrittenTriple>)>>,
+        notify_tx: Option<
+            mpsc::UnboundedSender<(
+                HashMap<String, Vec<String>>,
+                Vec<String>,
+                Vec<WrittenTriple>,
+            )>,
+        >,
     ) -> Self {
         let (write_tx, mut write_rx) = mpsc::unbounded_channel::<WriteTask>();
         let notify_tx_thread = notify_tx.clone();
@@ -105,16 +118,22 @@ impl DbExecutor {
             let mut opened = 0usize;
             for _ in 0..pool_cap {
                 match open_pool_connection(&db_path) {
-                    Some(c) => { guard.push(c); opened += 1; }
+                    Some(c) => {
+                        guard.push(c);
+                        opened += 1;
+                    }
                     None => {
-                        crate::diagnostics::log_backend("warn",
-                            "[DB] Pre-warm: failed to open a connection, continuing with fewer");
+                        crate::diagnostics::log_backend(
+                            "warn",
+                            "[DB] Pre-warm: failed to open a connection, continuing with fewer",
+                        );
                     }
                 }
             }
-            crate::diagnostics::log_backend("info", &format!(
-                "[DB] Read pool ready: cap={} warmed={}", pool_cap, opened
-            ));
+            crate::diagnostics::log_backend(
+                "info",
+                &format!("[DB] Read pool ready: cap={} warmed={}", pool_cap, opened),
+            );
         }
 
         // Open a dedicated read connection for background reactors (query_worker).
@@ -141,19 +160,42 @@ impl DbExecutor {
             let _ = write_conn.execute_batch("PRAGMA wal_autocheckpoint = 0;");
             let mut write_count: u32 = 0;
             while let Some(task) = write_rx.blocking_recv() {
+                let queue_wait = task.enqueued_at.elapsed();
+                crate::diagnostics::log_backend(
+                    "debug",
+                    &format!(
+                        "[DB_EXECUTOR] write started queue_wait_ms={}",
+                        queue_wait.as_millis()
+                    ),
+                );
+                let operation_started_at = std::time::Instant::now();
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     (task.operation)(&mut write_conn)
-                })).unwrap_or_else(|e| {
-                    let msg = e.downcast_ref::<&str>().copied()
+                }))
+                .unwrap_or_else(|e| {
+                    let msg = e
+                        .downcast_ref::<&str>()
+                        .copied()
                         .or_else(|| e.downcast_ref::<String>().map(|s| s.as_str()))
                         .unwrap_or("unknown panic");
                     Err(format!("write operation panicked: {}", msg))
                 });
+                crate::diagnostics::log_backend(
+                    "debug",
+                    &format!(
+                        "[DB_EXECUTOR] write completed operation_ms={}",
+                        operation_started_at.elapsed().as_millis()
+                    ),
+                );
                 if let Some(ref tx) = notify_tx_thread {
-                    let subject_predicates = crate::eavto::store::drain_written_subject_predicates();
+                    let subject_predicates =
+                        crate::eavto::store::drain_written_subject_predicates();
                     let iri_objects = crate::eavto::store::drain_written_iri_objects();
                     let written_triples = crate::eavto::store::drain_written_triples();
-                    if !subject_predicates.is_empty() || !iri_objects.is_empty() || !written_triples.is_empty() {
+                    if !subject_predicates.is_empty()
+                        || !iri_objects.is_empty()
+                        || !written_triples.is_empty()
+                    {
                         let _ = tx.send((subject_predicates, iri_objects, written_triples));
                     }
                 }
@@ -179,28 +221,49 @@ impl DbExecutor {
                         if attempt > 0 {
                             std::thread::sleep(std::time::Duration::from_millis(20));
                         }
-                        let ckpt = write_conn.query_row(
-                            "PRAGMA wal_checkpoint(TRUNCATE)",
-                            [],
-                            |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?, row.get::<_, i32>(2)?)),
-                        );
+                        let ckpt =
+                            write_conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
+                                Ok((
+                                    row.get::<_, i32>(0)?,
+                                    row.get::<_, i32>(1)?,
+                                    row.get::<_, i32>(2)?,
+                                ))
+                            });
                         match ckpt {
                             Ok((0, log, done)) => {
-                                crate::diagnostics::log_backend("debug", &format!(
-                                    "[WAL] TRUNCATE ok (attempt={} log={} done={})", attempt + 1, log, done
-                                ));
+                                crate::diagnostics::log_backend(
+                                    "debug",
+                                    &format!(
+                                        "[WAL] TRUNCATE ok (attempt={} log={} done={})",
+                                        attempt + 1,
+                                        log,
+                                        done
+                                    ),
+                                );
                                 truncated = true;
                                 break;
                             }
                             Ok((busy, log, done)) => {
-                                crate::diagnostics::log_backend("warn", &format!(
-                                    "[WAL] TRUNCATE busy (attempt={} busy={} log={} done={})", attempt + 1, busy, log, done
-                                ));
+                                crate::diagnostics::log_backend(
+                                    "warn",
+                                    &format!(
+                                        "[WAL] TRUNCATE busy (attempt={} busy={} log={} done={})",
+                                        attempt + 1,
+                                        busy,
+                                        log,
+                                        done
+                                    ),
+                                );
                             }
                             Err(e) => {
-                                crate::diagnostics::log_backend("warn", &format!(
-                                    "[WAL] TRUNCATE error (attempt={}): {}", attempt + 1, e
-                                ));
+                                crate::diagnostics::log_backend(
+                                    "warn",
+                                    &format!(
+                                        "[WAL] TRUNCATE error (attempt={}): {}",
+                                        attempt + 1,
+                                        e
+                                    ),
+                                );
                             }
                         }
                     }
@@ -208,18 +271,20 @@ impl DbExecutor {
                         // Fall back to RESTART: resets write position so WAL space is reused
                         // even if it can't be physically truncated right now.
                         let _ = write_conn.execute_batch("PRAGMA wal_checkpoint(RESTART);");
-                        crate::diagnostics::log_backend("warn", "[WAL] fell back to RESTART checkpoint");
+                        crate::diagnostics::log_backend(
+                            "warn",
+                            "[WAL] fell back to RESTART checkpoint",
+                        );
                     }
                 } else if write_count % WAL_PASSIVE_INTERVAL == 0 {
-                    let ckpt = write_conn.query_row(
-                        "PRAGMA wal_checkpoint(PASSIVE)",
-                        [],
-                        |row| Ok((row.get::<_, i32>(1)?, row.get::<_, i32>(2)?)),
-                    );
+                    let ckpt = write_conn.query_row("PRAGMA wal_checkpoint(PASSIVE)", [], |row| {
+                        Ok((row.get::<_, i32>(1)?, row.get::<_, i32>(2)?))
+                    });
                     if let Ok((log, done)) = ckpt {
-                        crate::diagnostics::log_backend("debug", &format!(
-                            "[WAL] PASSIVE checkpoint log={} done={}", log, done
-                        ));
+                        crate::diagnostics::log_backend(
+                            "debug",
+                            &format!("[WAL] PASSIVE checkpoint log={} done={}", log, done),
+                        );
                     }
                 }
             }
@@ -244,6 +309,7 @@ impl DbExecutor {
                         let pool = pool_for_idle.clone();
                         let (result_tx, _) = oneshot::channel::<Result<String, String>>();
                         let sent = write_tx_idle.send(WriteTask {
+                            enqueued_at: std::time::Instant::now(),
                             operation: Box::new(move |conn| {
                                 // Check WAL page count before draining the pool.
                                 // Draining is only needed to release read marks so TRUNCATE can
@@ -341,19 +407,34 @@ impl DbExecutor {
         // N connections are in use, the caller suspends here rather than opening an
         // extra connection that would inflate WAL read-marks and cause oversubscription.
         let t0 = std::time::Instant::now();
-        let permit: OwnedSemaphorePermit = self.read_semaphore.clone()
+        let permit: OwnedSemaphorePermit = self
+            .read_semaphore
+            .clone()
             .acquire_owned()
             .await
             .map_err(|e| e.to_string())?;
         let wait = t0.elapsed();
         if wait.as_secs() >= PERMIT_WARN_SECS {
-            crate::diagnostics::log_backend("warn", &format!(
+            crate::diagnostics::log_backend(
+                "warn",
+                &format!(
                 "[DB] Read waited {:.1}s for semaphore permit — sustained overload or permit leak",
                 wait.as_secs_f64()
-            ));
+            ),
+            );
         }
 
+        let spawn_submitted_at = std::time::Instant::now();
         tokio::task::spawn_blocking(move || {
+            let spawn_wait = spawn_submitted_at.elapsed();
+            crate::diagnostics::log_backend(
+                "debug",
+                &format!(
+                    "[DB_EXECUTOR] read started semaphore_wait_ms={} spawn_blocking_wait_ms={}",
+                    wait.as_millis(),
+                    spawn_wait.as_millis()
+                ),
+            );
             // Permit lives inside spawn_blocking so it is released only after the
             // connection is back in the pool, keeping the invariant: permit held ↔
             // connection in use.
@@ -365,12 +446,15 @@ impl DbExecutor {
                     // Pool was drained by a checkpoint. Open a fresh connection — bounded
                     // by the semaphore, so this cannot cause unbounded oversubscription.
                     let c = Connection::open(&path).map_err(|e| e.to_string())?;
-                    c.busy_timeout(std::time::Duration::from_secs(30)).map_err(|e| e.to_string())?;
+                    c.busy_timeout(std::time::Duration::from_secs(30))
+                        .map_err(|e| e.to_string())?;
                     c
                 }
             };
 
+            let operation_started_at = std::time::Instant::now();
             let result = operation(&conn);
+            let operation_duration = operation_started_at.elapsed();
 
             // Release WAL read mark before returning to pool so idle connections
             // do not block TRUNCATE checkpoints and grow the WAL.
@@ -382,6 +466,14 @@ impl DbExecutor {
                 // Silently drop if pool is at capacity (can happen transiently after
                 // a checkpoint re-opens connections beyond the original warmed set).
             }
+
+            crate::diagnostics::log_backend(
+                "debug",
+                &format!(
+                    "[DB_EXECUTOR] read completed operation_ms={}",
+                    operation_duration.as_millis()
+                ),
+            );
 
             result
         })
@@ -408,9 +500,27 @@ impl DbExecutor {
         let conn_arc = self.unmetered_conn.clone();
 
         tokio::task::spawn_blocking(move || {
+            let lock_wait_started_at = std::time::Instant::now();
             let guard = conn_arc.lock().map_err(|e| e.to_string())?;
+            let lock_wait = lock_wait_started_at.elapsed();
+            crate::diagnostics::log_backend(
+                "debug",
+                &format!(
+                    "[DB_EXECUTOR] read_unmetered started lock_wait_ms={}",
+                    lock_wait.as_millis()
+                ),
+            );
+            let operation_started_at = std::time::Instant::now();
             let result = operation(&*guard);
+            let operation_duration = operation_started_at.elapsed();
             let _ = guard.execute_batch("BEGIN DEFERRED; COMMIT;");
+            crate::diagnostics::log_backend(
+                "debug",
+                &format!(
+                    "[DB_EXECUTOR] read_unmetered completed operation_ms={}",
+                    operation_duration.as_millis()
+                ),
+            );
             result
         })
         .await
@@ -427,10 +537,23 @@ impl DbExecutor {
         let task = WriteTask {
             operation: Box::new(operation),
             result_tx,
+            enqueued_at: std::time::Instant::now(),
         };
 
         self.write_tx.send(task).map_err(|e| e.to_string())?;
         result_rx.await.map_err(|e| e.to_string())?
+    }
+
+    /// Returns the largest committed triple transaction without exposing the
+    /// SQLite connection to the caller.
+    pub async fn current_snapshot_tx(&self) -> Result<i64, String> {
+        self.read(|conn| {
+            conn.query_row("SELECT COALESCE(MAX(tx), 0) FROM triples", [], |row| {
+                row.get(0)
+            })
+            .map_err(|e| e.to_string())
+        })
+        .await
     }
 }
 

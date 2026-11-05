@@ -3,6 +3,7 @@ pub mod cardinality;
 mod class;
 pub mod expr;
 pub mod formula;
+pub mod materialization;
 mod graph_config;
 mod icons;
 mod individual;
@@ -21,10 +22,100 @@ pub use icons::{
 
 pub use crate::eavto::get_stats;
 pub use crate::eavto::initialize_db;
+pub use crate::eavto::query::{DateTimePage, DateTimePageItem, DateTimePageStats};
 pub use crate::eavto::Connection;
 pub use crate::eavto::DbExecutor;
 pub use crate::eavto::Object;
 pub use crate::eavto::Triple;
+
+pub fn current_snapshot_tx(conn: &Connection) -> std::result::Result<i64, String> {
+    crate::eavto::query::current_snapshot_tx(conn)
+        .map_err(|e| OwlError::DatabaseError(e.to_string()).to_string())
+}
+
+pub fn entity_last_tx(conn: &Connection, subject: &str) -> std::result::Result<Option<i64>, String> {
+    crate::eavto::query::entity_last_tx(conn, subject)
+        .map_err(map_entity_revision_database_error)
+}
+
+fn map_entity_revision_database_error(error: Box<dyn std::error::Error>) -> String {
+    OwlError::DatabaseError(error.to_string()).to_string()
+}
+
+/// Stable keyset page over a generic relation and date-time ordering property.
+/// Domain predicates and status values are supplied by Core-Ontology callers.
+#[allow(clippy::too_many_arguments)]
+pub fn page_relation_by_datetime_as_of(
+    conn: &Connection,
+    membership_predicate: &str,
+    membership_object: &str,
+    snapshot_tx: i64,
+    datetime_predicate: &str,
+    range_start: Option<&str>,
+    range_end: Option<&str>,
+    ascending: bool,
+    after: Option<(f64, &str)>,
+    limit: i64,
+    status_predicate: &str,
+    end_predicate: &str,
+    completed_status: &str,
+    failed_status: &str,
+) -> std::result::Result<DateTimePage, String> {
+    crate::eavto::query::page_relation_by_datetime_as_of(
+        conn,
+        membership_predicate,
+        membership_object,
+        snapshot_tx,
+        datetime_predicate,
+        range_start,
+        range_end,
+        ascending,
+        after,
+        limit,
+        status_predicate,
+        end_predicate,
+        completed_status,
+        failed_status,
+    )
+    .map_err(|e| OwlError::DatabaseError(e.to_string()).to_string())
+}
+
+/// Stable keyset page over objects referenced by an owner through a relation.
+#[allow(clippy::too_many_arguments)]
+pub fn page_related_objects_by_datetime_as_of(
+    conn: &Connection,
+    owner_subject: &str,
+    relation_predicate: &str,
+    snapshot_tx: i64,
+    datetime_predicate: &str,
+    range_start: Option<&str>,
+    range_end: Option<&str>,
+    ascending: bool,
+    after: Option<(f64, &str)>,
+    limit: i64,
+    status_predicate: &str,
+    end_predicate: &str,
+    completed_status: &str,
+    failed_status: &str,
+) -> std::result::Result<DateTimePage, String> {
+    crate::eavto::query::page_related_objects_by_datetime_as_of(
+        conn,
+        owner_subject,
+        relation_predicate,
+        snapshot_tx,
+        datetime_predicate,
+        range_start,
+        range_end,
+        ascending,
+        after,
+        limit,
+        status_predicate,
+        end_predicate,
+        completed_status,
+        failed_status,
+    )
+    .map_err(|e| OwlError::DatabaseError(e.to_string()).to_string())
+}
 pub use class::{Class, ClassType};
 pub use individual::Individual;
 pub use property::{DomainLabel, Property, PropertyClassification, PropertyType};

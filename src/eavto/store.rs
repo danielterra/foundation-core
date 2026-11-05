@@ -1,13 +1,12 @@
+use super::object_type::Object;
+use super::triple_type::Triple;
+use crate::diagnostics::log_backend;
+use chrono;
 /// EVTO Store Functions
 ///
 /// Functions for asserting and retracting triples (append-only, immutable)
-
 use rusqlite::Connection;
 use std::collections::HashMap;
-use super::triple_type::Triple;
-use super::object_type::Object;
-use crate::diagnostics::log_backend;
-use chrono;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -87,10 +86,7 @@ impl Drop for BatchTransactionGuard {
 /// `assert_triples`/`retract_triples` participate in one atomic commit.
 /// Rolls back on Err. Must NOT be called from within another transaction
 /// (use `enter_batch_transaction` directly if you need nested savepoints).
-pub fn with_transaction<T, F>(
-    conn: &mut Connection,
-    f: F,
-) -> std::result::Result<T, String>
+pub fn with_transaction<T, F>(conn: &mut Connection, f: F) -> std::result::Result<T, String>
 where
     F: FnOnce(&mut Connection) -> std::result::Result<T, String>,
 {
@@ -115,11 +111,7 @@ where
 /// Returns the transaction ID of the assertion.
 /// If called from within batch_operations (enter_batch_transaction was called),
 /// uses a nested SAVEPOINT so all calls participate in a single atomic transaction.
-pub fn assert_triples(
-    conn: &mut Connection,
-    triples: &[Triple],
-    origin: &str,
-) -> Result<i64> {
+pub fn assert_triples(conn: &mut Connection, triples: &[Triple], origin: &str) -> Result<i64> {
     let tx_id = if IN_BATCH_TX.with(|f| f.get()) {
         assert_triples_savepoint(conn, triples, origin)?
     } else {
@@ -166,15 +158,15 @@ pub fn assert_triples(
 }
 
 fn is_vocabulary_iri(iri: &str) -> bool {
-    iri.starts_with("rdf:") || iri.starts_with("rdfs:") || iri.starts_with("owl:") ||
-    iri.starts_with("xsd:") || iri.starts_with("unit:") || iri.starts_with("currency:")
+    iri.starts_with("rdf:")
+        || iri.starts_with("rdfs:")
+        || iri.starts_with("owl:")
+        || iri.starts_with("xsd:")
+        || iri.starts_with("unit:")
+        || iri.starts_with("currency:")
 }
 
-fn assert_triples_begin(
-    conn: &mut Connection,
-    triples: &[Triple],
-    origin: &str,
-) -> Result<i64> {
+fn assert_triples_begin(conn: &mut Connection, triples: &[Triple], origin: &str) -> Result<i64> {
     let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     let tx_id = do_assert_triples(&tx, triples, origin)?;
     tx.commit()?;
@@ -192,11 +184,7 @@ fn assert_triples_savepoint(
     Ok(tx_id)
 }
 
-fn do_assert_triples(
-    tx: &rusqlite::Connection,
-    triples: &[Triple],
-    origin: &str,
-) -> Result<i64> {
+fn do_assert_triples(tx: &rusqlite::Connection, triples: &[Triple], origin: &str) -> Result<i64> {
     let now = now_millis();
 
     let mut groups: Vec<((&str, &str), Vec<usize>)> = Vec::new();
@@ -216,10 +204,15 @@ fn do_assert_triples(
 
     for ((subject, predicate), incoming_indices) in &groups {
         let existing = fetch_existing_rows(tx, subject, predicate)?;
-        let incoming: Vec<&Object> = incoming_indices.iter().map(|&i| &triples[i].object).collect();
+        let incoming: Vec<&Object> = incoming_indices
+            .iter()
+            .map(|&i| &triples[i].object)
+            .collect();
 
         let is_noop = existing.len() == incoming.len()
-            && incoming.iter().all(|obj| existing.iter().any(|row| object_matches_row(obj, row)));
+            && incoming
+                .iter()
+                .all(|obj| existing.iter().any(|row| object_matches_row(obj, row)));
 
         if !is_noop {
             indices_to_insert.extend(incoming_indices);
@@ -242,7 +235,9 @@ fn do_assert_triples(
     }
 
     for ((subject, predicate), incoming_indices) in &groups {
-        let had_inserts = incoming_indices.iter().any(|i| indices_to_insert.contains(i));
+        let had_inserts = incoming_indices
+            .iter()
+            .any(|i| indices_to_insert.contains(i));
         if had_inserts {
             demote_superseded(tx, subject, predicate, tx_id)?;
         }
@@ -258,11 +253,11 @@ fn do_assert_triples(
                 AND object_number IS NULL) OR
                (object_datatype IN ('xsd:integer', 'xsd:int', 'xsd:long')
                 AND object_integer IS NULL)
-             )"
+             )",
         )?;
 
-        let bad_triples: Vec<(String, String, String, Option<f64>, Option<i64>)> =
-            stmt.query_map([tx_id], |row| {
+        let bad_triples: Vec<(String, String, String, Option<f64>, Option<i64>)> = stmt
+            .query_map([tx_id], |row| {
                 Ok((
                     row.get(0)?,
                     row.get(1)?,
@@ -286,7 +281,12 @@ fn do_assert_triples(
                     "warn",
                     &format!(
                         "  #{}: {} {} (datatype={}, object_number={:?}, object_integer={:?})",
-                        idx + 1, subj, pred, dt, num, int,
+                        idx + 1,
+                        subj,
+                        pred,
+                        dt,
+                        num,
+                        int,
                     ),
                 );
             }
@@ -304,11 +304,7 @@ fn do_assert_triples(
 /// Unlike `assert_triples`, this does NOT retract existing values for the same
 /// (subject, predicate) before inserting. Use this when you need to add triples
 /// that share a predicate with existing triples that must be preserved.
-pub fn append_triples(
-    conn: &mut Connection,
-    triples: &[Triple],
-    origin: &str,
-) -> Result<i64> {
+pub fn append_triples(conn: &mut Connection, triples: &[Triple], origin: &str) -> Result<i64> {
     let tx_id = if IN_BATCH_TX.with(|f| f.get()) {
         let sp = conn.savepoint()?;
         let tx_id = do_append_triples(&sp, triples, origin)?;
@@ -360,11 +356,7 @@ pub fn append_triples(
     Ok(tx_id)
 }
 
-fn do_append_triples(
-    tx: &rusqlite::Connection,
-    triples: &[Triple],
-    origin: &str,
-) -> Result<i64> {
+fn do_append_triples(tx: &rusqlite::Connection, triples: &[Triple], origin: &str) -> Result<i64> {
     let now = now_millis();
 
     let mut groups: Vec<((&str, &str), Vec<usize>)> = Vec::new();
@@ -385,7 +377,11 @@ fn do_append_triples(
         let existing = fetch_existing_rows(tx, subject, predicate)?;
         let new_indices: Vec<usize> = incoming_indices
             .iter()
-            .filter(|&&idx| !existing.iter().any(|row| object_matches_row(&triples[idx].object, row)))
+            .filter(|&&idx| {
+                !existing
+                    .iter()
+                    .any(|row| object_matches_row(&triples[idx].object, row))
+            })
             .copied()
             .collect();
         if !new_indices.is_empty() {
@@ -431,11 +427,7 @@ fn do_append_triples(
 /// Returns the transaction ID of the retraction.
 /// If called from within batch_operations (enter_batch_transaction was called),
 /// uses a nested SAVEPOINT so all calls participate in a single atomic transaction.
-pub fn retract_triples(
-    conn: &mut Connection,
-    triples: &[Triple],
-    origin: &str,
-) -> Result<i64> {
+pub fn retract_triples(conn: &mut Connection, triples: &[Triple], origin: &str) -> Result<i64> {
     let tx_id = if IN_BATCH_TX.with(|f| f.get()) {
         let sp = conn.savepoint()?;
         let tx_id = do_retract_triples(&sp, triples, origin)?;
@@ -487,11 +479,7 @@ pub fn retract_triples(
     Ok(tx_id)
 }
 
-fn do_retract_triples(
-    tx: &Connection,
-    triples: &[Triple],
-    origin: &str,
-) -> Result<i64> {
+fn do_retract_triples(tx: &Connection, triples: &[Triple], origin: &str) -> Result<i64> {
     let now = now_millis();
 
     let mut groups: Vec<((String, String), Vec<usize>)> = Vec::new();
@@ -621,18 +609,19 @@ fn fetch_existing_rows(
          FROM triples
          WHERE subject = ?1 AND predicate = ?2 AND retracted = 0 AND is_current = 1",
     )?;
-    let rows = stmt.query_map([subject, predicate], |row| {
-        Ok(ExistingRow {
-            object: row.get(0)?,
-            object_value: row.get(1)?,
-            object_datatype: row.get(2)?,
-            object_language: row.get(3)?,
-            object_integer: row.get(4)?,
-            object_number: row.get(5)?,
-            object_boolean: row.get(6)?,
-        })
-    })?
-    .collect::<rusqlite::Result<Vec<_>>>()?;
+    let rows = stmt
+        .query_map([subject, predicate], |row| {
+            Ok(ExistingRow {
+                object: row.get(0)?,
+                object_value: row.get(1)?,
+                object_datatype: row.get(2)?,
+                object_language: row.get(3)?,
+                object_integer: row.get(4)?,
+                object_number: row.get(5)?,
+                object_boolean: row.get(6)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
 }
 
@@ -640,12 +629,15 @@ fn fetch_existing_rows(
 fn object_matches_row(obj: &Object, row: &ExistingRow) -> bool {
     match obj {
         Object::Iri(iri) | Object::Blank(iri) => row.object.as_deref() == Some(iri.as_str()),
-        Object::Literal { value, datatype, language } => {
+        Object::Literal {
+            value,
+            datatype,
+            language,
+        } => {
             row.object_value.as_deref() == Some(value.as_str())
                 && row.object_datatype.as_deref().unwrap_or("xsd:string")
                     == datatype.as_deref().unwrap_or("xsd:string")
-                && row.object_language.as_deref().unwrap_or("")
-                    == language.as_deref().unwrap_or("")
+                && row.object_language.as_deref().unwrap_or("") == language.as_deref().unwrap_or("")
         }
         Object::Integer(i) => row.object_integer == Some(*i),
         Object::Number(n) => row.object_number == Some(*n),
@@ -709,11 +701,27 @@ fn insert_triple(
 
         Object::Integer(i) => {
             int_str = i.to_string();
-            (None, Some(int_str.as_str()), Some("xsd:integer"), None, None, Some(*i), None)
+            (
+                None,
+                Some(int_str.as_str()),
+                Some("xsd:integer"),
+                None,
+                None,
+                Some(*i),
+                None,
+            )
         }
         Object::Number(n) => {
             num_str = n.to_string();
-            (None, Some(num_str.as_str()), Some("xsd:decimal"), None, Some(*n), None, None)
+            (
+                None,
+                Some(num_str.as_str()),
+                Some("xsd:decimal"),
+                None,
+                Some(*n),
+                None,
+                None,
+            )
         }
         Object::Boolean(b) => {
             bool_str = b.to_string();
@@ -732,84 +740,93 @@ fn insert_triple(
                 .unwrap_or(chrono::DateTime::UNIX_EPOCH.into())
                 .with_timezone(&chrono::Utc)
                 .to_rfc3339();
-            (None, Some(dt_str.as_str()), Some("xsd:dateTime"), None, None, None, None)
+            (
+                None,
+                Some(dt_str.as_str()),
+                Some("xsd:dateTime"),
+                None,
+                None,
+                None,
+                None,
+            )
         }
 
-        Object::Literal { value, datatype, language } => {
-            match datatype.as_deref() {
-                Some("xsd:decimal") | Some("xsd:double") | Some("xsd:float") => {
-                    let n = value.parse::<f64>()
-                        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(
+        Object::Literal {
+            value,
+            datatype,
+            language,
+        } => match datatype.as_deref() {
+            Some("xsd:decimal") | Some("xsd:double") | Some("xsd:float") => {
+                let n = value.parse::<f64>().map_err(|e| {
+                    rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!(
+                            "Failed to parse float literal '{}' for triple: \
+                                     {} {} {} - Error: {}",
+                            value, triple.subject, triple.predicate, value, e,
+                        ),
+                    )))
+                })?;
+                (
+                    None,
+                    Some(value.as_str()),
+                    datatype.as_deref(),
+                    language.as_deref(),
+                    Some(n),
+                    None,
+                    None,
+                )
+            }
+            Some("xsd:integer") | Some("xsd:int") | Some("xsd:long") => {
+                let i = value.parse::<i64>().map_err(|e| {
+                    rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!(
+                            "Failed to parse integer literal '{}' for triple: \
+                                     {} {} {} - Error: {}",
+                            value, triple.subject, triple.predicate, value, e,
+                        ),
+                    )))
+                })?;
+                (
+                    None,
+                    Some(value.as_str()),
+                    datatype.as_deref(),
+                    language.as_deref(),
+                    None,
+                    Some(i),
+                    None,
+                )
+            }
+            Some("xsd:boolean") => {
+                let b = match value.as_str() {
+                    "true" | "1" => 1,
+                    "false" | "0" => 0,
+                    _ => {
+                        return Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
                             std::io::Error::new(
                                 std::io::ErrorKind::InvalidData,
                                 format!(
-                                    "Failed to parse float literal '{}' for triple: \
-                                     {} {} {} - Error: {}",
-                                    value, triple.subject, triple.predicate, value, e,
-                                ),
-                            )
-                        )))?;
-                    (
-                        None,
-                        Some(value.as_str()),
-                        datatype.as_deref(),
-                        language.as_deref(),
-                        Some(n),
-                        None,
-                        None,
-                    )
-                }
-                Some("xsd:integer") | Some("xsd:int") | Some("xsd:long") => {
-                    let i = value.parse::<i64>()
-                        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(
-                            std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                format!(
-                                    "Failed to parse integer literal '{}' for triple: \
-                                     {} {} {} - Error: {}",
-                                    value, triple.subject, triple.predicate, value, e,
-                                ),
-                            )
-                        )))?;
-                    (
-                        None,
-                        Some(value.as_str()),
-                        datatype.as_deref(),
-                        language.as_deref(),
-                        None,
-                        Some(i),
-                        None,
-                    )
-                }
-                Some("xsd:boolean") => {
-                    let b = match value.as_str() {
-                        "true" | "1" => 1,
-                        "false" | "0" => 0,
-                        _ => {
-                            return Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
-                                std::io::Error::new(
-                                    std::io::ErrorKind::InvalidData,
-                                    format!(
-                                        "Invalid boolean literal '{}' for triple: {} {} {} \
+                                    "Invalid boolean literal '{}' for triple: {} {} {} \
                                          - Expected: 'true', 'false', '1', or '0'",
-                                        value, triple.subject, triple.predicate, value,
-                                    ),
-                                )
-                            )));
-                        }
-                    };
-                    (
-                        None,
-                        Some(value.as_str()),
-                        datatype.as_deref(),
-                        language.as_deref(),
-                        None,
-                        None,
-                        Some(b),
-                    )
-                }
-                Some("xsd:dateTime") => {
-                    let parsed = chrono::DateTime::parse_from_rfc3339(value)
+                                    value, triple.subject, triple.predicate, value,
+                                ),
+                            ),
+                        )));
+                    }
+                };
+                (
+                    None,
+                    Some(value.as_str()),
+                    datatype.as_deref(),
+                    language.as_deref(),
+                    None,
+                    None,
+                    Some(b),
+                )
+            }
+            Some("xsd:dateTime") => {
+                let parsed = chrono::DateTime::parse_from_rfc3339(value)
                         .map_err(|_| rusqlite::Error::ToSqlConversionFailure(Box::new(
                             std::io::Error::new(
                                 std::io::ErrorKind::InvalidData,
@@ -820,53 +837,49 @@ fn insert_triple(
                                 ),
                             )
                         )))?;
-                    dt_str = parsed.with_timezone(&chrono::Utc).to_rfc3339();
-                    (
-                        None,
-                        Some(dt_str.as_str()),
-                        datatype.as_deref(),
-                        language.as_deref(),
-                        None,
-                        None,
-                        None,
-                    )
-                }
-                Some("xsd:date") => {
-                    chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
-                        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(
-                            std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                format!(
-                                    "Failed to parse date literal '{}' for triple: \
+                dt_str = parsed.with_timezone(&chrono::Utc).to_rfc3339();
+                (
+                    None,
+                    Some(dt_str.as_str()),
+                    datatype.as_deref(),
+                    language.as_deref(),
+                    None,
+                    None,
+                    None,
+                )
+            }
+            Some("xsd:date") => {
+                chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").map_err(|e| {
+                    rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!(
+                            "Failed to parse date literal '{}' for triple: \
                                      {} {} {} - Error: {} - Expected format: YYYY-MM-DD \
                                      (e.g., '2020-11-17')",
-                                    value, triple.subject, triple.predicate, value, e,
-                                ),
-                            )
-                        )))?;
-                    (
-                        None,
-                        Some(value.as_str()),
-                        datatype.as_deref(),
-                        language.as_deref(),
-                        None,
-                        None,
-                        None,
-                    )
-                }
-                _ => {
-                    (
-                        None,
-                        Some(value.as_str()),
-                        datatype.as_deref(),
-                        language.as_deref(),
-                        None,
-                        None,
-                        None,
-                    )
-                }
+                            value, triple.subject, triple.predicate, value, e,
+                        ),
+                    )))
+                })?;
+                (
+                    None,
+                    Some(value.as_str()),
+                    datatype.as_deref(),
+                    language.as_deref(),
+                    None,
+                    None,
+                    None,
+                )
             }
-        }
+            _ => (
+                None,
+                Some(value.as_str()),
+                datatype.as_deref(),
+                language.as_deref(),
+                None,
+                None,
+                None,
+            ),
+        },
     };
 
     let object_type = triple.object.object_type();
@@ -895,7 +908,10 @@ fn insert_triple(
     );
 
     if let Err(e) = result {
-        log_backend("error", &format!("\n❌ INSERT FAILED:
+        log_backend(
+            "error",
+            &format!(
+                "\n❌ INSERT FAILED:
    Subject: {}
    Predicate: {}
    Object: {:?}
@@ -904,14 +920,16 @@ fn insert_triple(
    object_integer: {:?}
    object_boolean: {:?}
    Error: {}\n",
-            triple.subject,
-            triple.predicate,
-            triple.object,
-            object_datatype,
-            object_number,
-            object_integer,
-            object_boolean,
-            e));
+                triple.subject,
+                triple.predicate,
+                triple.object,
+                object_datatype,
+                object_number,
+                object_integer,
+                object_boolean,
+                e
+            ),
+        );
         return Err(e);
     }
 
@@ -920,11 +938,9 @@ fn insert_triple(
 
 /// Get or create origin ID
 fn get_or_create_origin(tx: &rusqlite::Connection, origin: &str) -> rusqlite::Result<i64> {
-    match tx.query_row(
-        "SELECT id FROM origins WHERE name = ?",
-        [origin],
-        |row| row.get(0),
-    ) {
+    match tx.query_row("SELECT id FROM origins WHERE name = ?", [origin], |row| {
+        row.get(0)
+    }) {
         Ok(id) => Ok(id),
         Err(rusqlite::Error::QueryReturnedNoRows) => {
             tx.execute("INSERT INTO origins (name) VALUES (?)", [origin])?;
@@ -938,12 +954,7 @@ fn get_or_create_origin(tx: &rusqlite::Connection, origin: &str) -> rusqlite::Re
 ///
 /// Retracts all active triples that reference `old_iri` (as subject or IRI object)
 /// and re-inserts them with `new_iri`. No-op if there are no matching triples.
-pub fn rename_iri(
-    conn: &mut Connection,
-    old_iri: &str,
-    new_iri: &str,
-    origin: &str,
-) -> Result<()> {
+pub fn rename_iri(conn: &mut Connection, old_iri: &str, new_iri: &str, origin: &str) -> Result<()> {
     if IN_BATCH_TX.with(|f| f.get()) {
         let sp = conn.savepoint()?;
         do_rename_iri(&sp, old_iri, new_iri, origin)?;
@@ -981,24 +992,26 @@ fn do_rename_iri(
         "SELECT rowid, subject, predicate, object, object_value, object_datatype,
                 object_language, object_type, object_number, object_integer, object_boolean
          FROM triples
-         WHERE (subject = ?1 OR object = ?1) AND retracted = 0"
+         WHERE (subject = ?1 OR object = ?1) AND retracted = 0",
     )?;
 
-    let rows: Vec<FullRow> = stmt.query_map([old_iri], |row| {
-        Ok(FullRow {
-            rowid: row.get(0)?,
-            subject: row.get(1)?,
-            predicate: row.get(2)?,
-            object: row.get(3)?,
-            object_value: row.get(4)?,
-            object_datatype: row.get(5)?,
-            object_language: row.get(6)?,
-            object_type: row.get(7)?,
-            object_number: row.get(8)?,
-            object_integer: row.get(9)?,
-            object_boolean: row.get(10)?,
-        })
-    })?.collect::<rusqlite::Result<Vec<_>>>()?;
+    let rows: Vec<FullRow> = stmt
+        .query_map([old_iri], |row| {
+            Ok(FullRow {
+                rowid: row.get(0)?,
+                subject: row.get(1)?,
+                predicate: row.get(2)?,
+                object: row.get(3)?,
+                object_value: row.get(4)?,
+                object_datatype: row.get(5)?,
+                object_language: row.get(6)?,
+                object_type: row.get(7)?,
+                object_number: row.get(8)?,
+                object_integer: row.get(9)?,
+                object_boolean: row.get(10)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
 
     if rows.is_empty() {
         return Ok(());
@@ -1026,9 +1039,17 @@ fn do_rename_iri(
             rusqlite::params![tx_id, origin_id, now, row.rowid],
         )?;
 
-        let new_subject: &str = if row.subject == old_iri { new_iri } else { &row.subject };
+        let new_subject: &str = if row.subject == old_iri {
+            new_iri
+        } else {
+            &row.subject
+        };
         let new_object_owned: Option<String> = row.object.as_ref().map(|o| {
-            if o == old_iri { new_iri.to_string() } else { o.clone() }
+            if o == old_iri {
+                new_iri.to_string()
+            } else {
+                o.clone()
+            }
         });
         let new_object: Option<&str> = new_object_owned.as_deref();
 
@@ -1068,7 +1089,6 @@ fn now_millis() -> i64 {
         .expect("system clock is before Unix epoch")
         .as_millis() as i64
 }
-
 
 #[cfg(test)]
 #[path = "store_tests.rs"]

@@ -1,5 +1,5 @@
+use crate::eavto::{query, Connection};
 use std::collections::HashMap;
-use crate::eavto::{Connection, query};
 
 #[cfg(test)]
 #[path = "materialize_tests.rs"]

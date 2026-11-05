@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use rusqlite::Connection;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -42,21 +42,32 @@ pub fn validate_query_config(
     conn: &Connection,
     config: &QueryConfig,
 ) -> Result<(), crate::owl::OwlError> {
-    let class_exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM triples_current \
+    let class_exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM triples_current \
          WHERE subject = ? AND predicate = 'rdf:type' AND object IN ('owl:Class', 'rdfs:Class')",
-        rusqlite::params![config.target_class],
-        |row| row.get(0),
-    ).unwrap_or(false);
+            rusqlite::params![config.target_class],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
 
     if !class_exists {
         return Err(crate::owl::OwlError::ValidationError(format!(
-            "targetClass '{}' does not exist in the graph", config.target_class
+            "targetClass '{}' does not exist in the graph",
+            config.target_class
         )));
     }
 
     const VALID_OPERATORS: &[&str] = &[
-        "eq", "neq", "gt", "lt", "gte", "lte", "between", "exists", "not_exists",
+        "eq",
+        "neq",
+        "gt",
+        "lt",
+        "gte",
+        "lte",
+        "between",
+        "exists",
+        "not_exists",
     ];
 
     for filter in &config.filters {
@@ -79,7 +90,8 @@ pub fn validate_query_config(
 
         if !prop_exists {
             return Err(crate::owl::OwlError::ValidationError(format!(
-                "property_iri '{}' in filters does not exist in the graph", filter.property_iri
+                "property_iri '{}' in filters does not exist in the graph",
+                filter.property_iri
             )));
         }
     }
@@ -88,7 +100,8 @@ pub fn validate_query_config(
         let dir = ob.direction.to_ascii_lowercase();
         if dir != "asc" && dir != "desc" {
             return Err(crate::owl::OwlError::ValidationError(format!(
-                "Invalid direction in orderBy: '{}'. Use 'asc' or 'desc'", ob.direction
+                "Invalid direction in orderBy: '{}'. Use 'asc' or 'desc'",
+                ob.direction
             )));
         }
         let prop_exists: bool = conn.query_row(
@@ -98,7 +111,8 @@ pub fn validate_query_config(
         ).unwrap_or(false);
         if !prop_exists {
             return Err(crate::owl::OwlError::ValidationError(format!(
-                "property_iri '{}' in orderBy does not exist in the graph", ob.property_iri
+                "property_iri '{}' in orderBy does not exist in the graph",
+                ob.property_iri
             )));
         }
     }
@@ -121,7 +135,8 @@ fn resolve_self_value(conn: &Connection, owner_iri: &str, prop_iri: &str) -> Opt
          WHERE subject = ? AND predicate = ? LIMIT 1",
         rusqlite::params![owner_iri, prop_iri],
         |row| row.get::<_, String>(0),
-    ).ok()
+    )
+    .ok()
 }
 
 fn is_numeric_str(v: &str) -> bool {
@@ -145,7 +160,7 @@ pub fn evaluate_query(
 ) -> Result<Vec<String>, crate::owl::OwlError> {
     let mut sql = String::from(
         "SELECT DISTINCT tc.subject FROM triples_current tc \
-         WHERE tc.predicate = 'rdf:type' AND tc.object = ?"
+         WHERE tc.predicate = 'rdf:type' AND tc.object = ?",
     );
     let mut params: Vec<String> = vec![config.target_class.clone()];
 
@@ -157,14 +172,14 @@ pub fn evaluate_query(
             "exists" => {
                 sql.push_str(
                     " AND EXISTS (SELECT 1 FROM triples_current f \
-                     WHERE f.subject = tc.subject AND f.predicate = ?)"
+                     WHERE f.subject = tc.subject AND f.predicate = ?)",
                 );
                 params.push(prop.clone());
             }
             "not_exists" => {
                 sql.push_str(
                     " AND NOT EXISTS (SELECT 1 FROM triples_current f \
-                     WHERE f.subject = tc.subject AND f.predicate = ?)"
+                     WHERE f.subject = tc.subject AND f.predicate = ?)",
                 );
                 params.push(prop.clone());
             }
@@ -202,9 +217,12 @@ pub fn evaluate_query(
                     "lt" => "<",
                     "gte" => ">=",
                     "lte" => "<=",
-                    unknown => return Err(crate::owl::OwlError::ValidationError(format!(
-                        "Unknown filter operator: '{}'", unknown
-                    ))),
+                    unknown => {
+                        return Err(crate::owl::OwlError::ValidationError(format!(
+                            "Unknown filter operator: '{}'",
+                            unknown
+                        )))
+                    }
                 };
 
                 let raw_val = filter.value.as_deref().unwrap_or("");
@@ -237,7 +255,11 @@ pub fn evaluate_query(
         sql.push_str(" ORDER BY ");
         let mut parts: Vec<String> = Vec::with_capacity(config.order_by.len());
         for ob in &config.order_by {
-            let dir = if ob.direction.eq_ignore_ascii_case("desc") { "DESC" } else { "ASC" };
+            let dir = if ob.direction.eq_ignore_ascii_case("desc") {
+                "DESC"
+            } else {
+                "ASC"
+            };
             params.push(ob.property_iri.clone());
             parts.push(format!(
                 "(SELECT COALESCE(f.object, f.object_value) FROM triples_current f \
@@ -252,13 +274,15 @@ pub fn evaluate_query(
         sql.push_str(&format!(" LIMIT {}", limit));
     }
 
-    let mut stmt = conn.prepare(&sql)
+    let mut stmt = conn
+        .prepare(&sql)
         .map_err(|e| crate::owl::OwlError::DatabaseError(e.to_string()))?;
 
-    let rows = stmt.query_map(
-        rusqlite::params_from_iter(params.iter()),
-        |row| row.get::<_, String>(0),
-    ).map_err(|e| crate::owl::OwlError::DatabaseError(e.to_string()))?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+            row.get::<_, String>(0)
+        })
+        .map_err(|e| crate::owl::OwlError::DatabaseError(e.to_string()))?;
 
     Ok(rows.filter_map(|r| r.ok()).collect())
 }

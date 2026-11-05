@@ -20,14 +20,18 @@ impl Individual {
     /// Validate that a literal value conforms to its declared xsd datatype
     pub(super) fn validate_literal_datatype(property: &str, value: &Object) -> Result<()> {
         let (raw, datatype) = match value {
-            Object::Literal { value, datatype: Some(dt), .. } => (value.as_str(), dt.as_str()),
+            Object::Literal {
+                value,
+                datatype: Some(dt),
+                ..
+            } => (value.as_str(), dt.as_str()),
             _ => return Ok(()),
         };
 
         match datatype {
             "xsd:dateTime" => {
-                let valid = raw.parse::<i64>().is_ok()
-                    || chrono::DateTime::parse_from_rfc3339(raw).is_ok();
+                let valid =
+                    raw.parse::<i64>().is_ok() || chrono::DateTime::parse_from_rfc3339(raw).is_ok();
                 if !valid {
                     return Err(OwlError::ValidationError(format!(
                         "Property {}: '{}' is not a valid xsd:dateTime \
@@ -49,14 +53,16 @@ impl Individual {
             "xsd:integer" | "xsd:long" | "xsd:int" | "xsd:short" => {
                 raw.parse::<i64>().map_err(|_| {
                     OwlError::ValidationError(format!(
-                        "Property {}: '{}' is not a valid {}", property, raw, datatype
+                        "Property {}: '{}' is not a valid {}",
+                        property, raw, datatype
                     ))
                 })?;
             }
             "xsd:decimal" | "xsd:float" | "xsd:double" => {
                 raw.parse::<f64>().map_err(|_| {
                     OwlError::ValidationError(format!(
-                        "Property {}: '{}' is not a valid {}", property, raw, datatype
+                        "Property {}: '{}' is not a valid {}",
+                        property, raw, datatype
                     ))
                 })?;
             }
@@ -75,7 +81,11 @@ impl Individual {
     }
 
     /// Validate that the value types match the property's declared type (ObjectProperty vs DatatypeProperty)
-    pub(super) fn validate_value_type(conn: &Connection, property: &str, values: &[Object]) -> Result<()> {
+    pub(super) fn validate_value_type(
+        conn: &Connection,
+        property: &str,
+        values: &[Object],
+    ) -> Result<()> {
         use crate::owl::{Property, PropertyType};
 
         let prop = match Property::get(conn, property)? {
@@ -94,7 +104,8 @@ impl Individual {
                         };
                         return Err(OwlError::ValidationError(format!(
                             "Property '{}' is an ObjectProperty{}, but got a literal value: '{}'",
-                            property, range_hint,
+                            property,
+                            range_hint,
                             value.as_literal().unwrap_or_default()
                         )));
                     }
@@ -110,7 +121,8 @@ impl Individual {
                         };
                         return Err(OwlError::ValidationError(format!(
                             "Property '{}' is a DatatypeProperty{}, but got an IRI: '{}'",
-                            property, range_hint,
+                            property,
+                            range_hint,
                             value.as_iri().unwrap()
                         )));
                     }
@@ -130,7 +142,9 @@ impl Individual {
         new_class_iri: &str,
     ) -> Result<()> {
         let types_result = query::get_by_entity_predicate(conn, individual_iri, rdf::TYPE)?;
-        let existing_types: Vec<String> = types_result.triples.iter()
+        let existing_types: Vec<String> = types_result
+            .triples
+            .iter()
             .filter_map(|t| t.object.as_iri())
             .map(|s| s.to_string())
             .filter(|t| t != new_class_iri)
@@ -153,7 +167,11 @@ impl Individual {
     }
 
     /// Validate that an IRI value exists in the graph before referencing it
-    pub(super) fn validate_iri_exists(conn: &Connection, property: &str, value: &Object) -> Result<()> {
+    pub(super) fn validate_iri_exists(
+        conn: &Connection,
+        property: &str,
+        value: &Object,
+    ) -> Result<()> {
         let value_iri = match value.as_iri() {
             Some(iri) => iri,
             None => return Ok(()),
@@ -172,7 +190,11 @@ impl Individual {
     }
 
     /// Validate that an IRI value is an instance of the property's declared rdfs:range class
-    pub(super) fn validate_range_type(conn: &Connection, property: &str, value: &Object) -> Result<()> {
+    pub(super) fn validate_range_type(
+        conn: &Connection,
+        property: &str,
+        value: &Object,
+    ) -> Result<()> {
         let value_iri = match value.as_iri() {
             Some(iri) => iri,
             None => return Ok(()),
@@ -188,12 +210,17 @@ impl Individual {
         };
 
         let types_result = query::get_by_entity_predicate(conn, value_iri, rdf::TYPE)?;
-        let value_types: Vec<String> = types_result.triples.iter()
+        let value_types: Vec<String> = types_result
+            .triples
+            .iter()
             .filter_map(|t| t.object.as_iri())
             .map(|s| s.to_string())
             .collect();
 
-        if value_types.iter().any(|t| is_subclass_of_or_equal(conn, t, &range_class)) {
+        if value_types
+            .iter()
+            .any(|t| is_subclass_of_or_equal(conn, t, &range_class))
+        {
             return Ok(());
         }
 
@@ -202,13 +229,21 @@ impl Individual {
             value_iri,
             property,
             range_class,
-            if value_types.is_empty() { "none".to_string() } else { value_types.join(", ") }
+            if value_types.is_empty() {
+                "none".to_string()
+            } else {
+                value_types.join(", ")
+            }
         )))
     }
 
     /// Validate that a value conforms to owl:oneOf constraint on the property's range
-    pub(super) fn validate_one_of_constraint(conn: &Connection, property: &str, value: &Object) -> Result<()> {
-        use crate::owl::vocabulary::{rdfs, owl};
+    pub(super) fn validate_one_of_constraint(
+        conn: &Connection,
+        property: &str,
+        value: &Object,
+    ) -> Result<()> {
+        use crate::owl::vocabulary::{owl, rdfs};
 
         // Only validate for IRI values (owl:oneOf only applies to object properties)
         let value_iri = match value.as_iri() {
@@ -232,9 +267,10 @@ impl Individual {
                                 "Value '{}' is not allowed for property '{}'.",
                                 value_iri, property,
                             );
-                            return Err(OwlError::ValidationError(
-                                format!("{} Allowed values: {}", msg, allowed)
-                            ));
+                            return Err(OwlError::ValidationError(format!(
+                                "{} Allowed values: {}",
+                                msg, allowed
+                            )));
                         }
                     }
                 }
@@ -249,26 +285,38 @@ impl Individual {
 mod tests {
     use super::*;
     use crate::eavto::test_helpers::setup_test_db;
-    use crate::owl::{Class, ClassType, Property, PropertyType, vocabulary::{rdf, owl}};
+    use crate::owl::{
+        vocabulary::{owl, rdf},
+        Class, ClassType, Property, PropertyType,
+    };
 
     #[test]
     fn test_owl_one_of_validation_success() {
         let mut conn = setup_test_db();
 
         let task_class = Class::new("foundation:Task");
-        task_class.assert(
-            &mut conn, ClassType::OwlClass, "Task", "https://example.com/task.svg", None, "test",
-        ).unwrap();
+        task_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Task",
+                "https://example.com/task.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let priority_class = Class::new("foundation:TaskPriority");
-        priority_class.assert(
-            &mut conn,
-            ClassType::OwlClass,
-            "Task Priority",
-            "https://example.com/priority.svg",
-            None,
-            "test",
-        ).unwrap();
+        priority_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Task Priority",
+                "https://example.com/priority.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let high = Triple::new(
             "foundation:HighPriority",
@@ -309,7 +357,8 @@ mod tests {
             &mut conn,
             &[list1, list1_rest, list2, list2_rest, list3, list3_rest],
             "test",
-        ).unwrap();
+        )
+        .unwrap();
 
         let one_of = Triple::new(
             "foundation:TaskPriority",
@@ -319,19 +368,28 @@ mod tests {
         store::assert_triples(&mut conn, &[one_of], "test").unwrap();
 
         let priority_prop = Property::new("foundation:priority");
-        priority_prop.assert(
-            &mut conn,
-            PropertyType::ObjectProperty,
-            "priority",
-            None,
-            &["foundation:Task"],
-            Some("foundation:TaskPriority"),
-            None,
-            "test",
-        ).unwrap();
+        priority_prop
+            .assert(
+                &mut conn,
+                PropertyType::ObjectProperty,
+                "priority",
+                None,
+                &["foundation:Task"],
+                Some("foundation:TaskPriority"),
+                None,
+                "test",
+            )
+            .unwrap();
 
         let task = Individual::new("foundation:MyTask");
-        task.assert(&mut conn, "foundation:Task", "My Task", "https://example.com/task.svg", "test").unwrap();
+        task.assert(
+            &mut conn,
+            "foundation:Task",
+            "My Task",
+            "https://example.com/task.svg",
+            "test",
+        )
+        .unwrap();
 
         let result = task.add_property(
             &mut conn,
@@ -347,19 +405,28 @@ mod tests {
         let mut conn = setup_test_db();
 
         let task_class = Class::new("foundation:Task");
-        task_class.assert(
-            &mut conn, ClassType::OwlClass, "Task", "https://example.com/task.svg", None, "test",
-        ).unwrap();
+        task_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Task",
+                "https://example.com/task.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let priority_class = Class::new("foundation:TaskPriority");
-        priority_class.assert(
-            &mut conn,
-            ClassType::OwlClass,
-            "Task Priority",
-            "https://example.com/priority.svg",
-            None,
-            "test",
-        ).unwrap();
+        priority_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Task Priority",
+                "https://example.com/priority.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let high = Triple::new(
             "foundation:HighPriority",
@@ -395,19 +462,28 @@ mod tests {
         store::assert_triples(&mut conn, &[one_of], "test").unwrap();
 
         let priority_prop = Property::new("foundation:priority");
-        priority_prop.assert(
-            &mut conn,
-            PropertyType::ObjectProperty,
-            "priority",
-            None,
-            &["foundation:Task"],
-            Some("foundation:TaskPriority"),
-            None,
-            "test",
-        ).unwrap();
+        priority_prop
+            .assert(
+                &mut conn,
+                PropertyType::ObjectProperty,
+                "priority",
+                None,
+                &["foundation:Task"],
+                Some("foundation:TaskPriority"),
+                None,
+                "test",
+            )
+            .unwrap();
 
         let task = Individual::new("foundation:MyTask");
-        task.assert(&mut conn, "foundation:Task", "My Task", "https://example.com/task.svg", "test").unwrap();
+        task.assert(
+            &mut conn,
+            "foundation:Task",
+            "My Task",
+            "https://example.com/task.svg",
+            "test",
+        )
+        .unwrap();
 
         let invalid = Triple::new(
             "foundation:LowPriority",
@@ -437,9 +513,16 @@ mod tests {
         let mut conn = setup_test_db();
 
         let task_class = Class::new("foundation:Task");
-        task_class.assert(
-            &mut conn, ClassType::OwlClass, "Task", "https://example.com/task.svg", None, "test",
-        ).unwrap();
+        task_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Task",
+                "https://example.com/task.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let prop = Property::new("foundation:assignedTo");
         prop.assert(
@@ -451,10 +534,18 @@ mod tests {
             None,
             None,
             "test",
-        ).unwrap();
+        )
+        .unwrap();
 
         let task = Individual::new("foundation:MyTask");
-        task.assert(&mut conn, "foundation:Task", "My Task", "https://example.com/task.svg", "test").unwrap();
+        task.assert(
+            &mut conn,
+            "foundation:Task",
+            "My Task",
+            "https://example.com/task.svg",
+            "test",
+        )
+        .unwrap();
 
         let result = task.add_property(
             &mut conn,
@@ -462,7 +553,10 @@ mod tests {
             vec![Object::Iri("foundation:NonExistentUser".to_string())],
             "test",
         );
-        assert!(result.is_err(), "Should reject reference to non-existent IRI");
+        assert!(
+            result.is_err(),
+            "Should reject reference to non-existent IRI"
+        );
         if let Err(OwlError::ValidationError(msg)) = result {
             assert!(msg.contains("foundation:NonExistentUser"));
             assert!(msg.contains("does not exist"));
@@ -471,7 +565,14 @@ mod tests {
         }
 
         let user = Individual::new("foundation:NonExistentUser");
-        user.assert(&mut conn, "foundation:Task", "A User", "https://example.com/person.svg", "test").unwrap();
+        user.assert(
+            &mut conn,
+            "foundation:Task",
+            "A User",
+            "https://example.com/person.svg",
+            "test",
+        )
+        .unwrap();
 
         let result = task.add_property(
             &mut conn,
@@ -487,45 +588,87 @@ mod tests {
         let mut conn = setup_test_db();
 
         let task_class = Class::new("foundation:Task");
-        task_class.assert(
-            &mut conn, ClassType::OwlClass, "Task", "https://example.com/task.svg", None, "test",
-        ).unwrap();
+        task_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Task",
+                "https://example.com/task.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let obj_prop = Property::new("foundation:relatedTo");
-        obj_prop.assert(
-            &mut conn, PropertyType::ObjectProperty, "relatedTo",
-            None, &["foundation:Task"], None, None, "test",
-        ).unwrap();
+        obj_prop
+            .assert(
+                &mut conn,
+                PropertyType::ObjectProperty,
+                "relatedTo",
+                None,
+                &["foundation:Task"],
+                None,
+                None,
+                "test",
+            )
+            .unwrap();
 
         let dt_prop = Property::new("foundation:title");
-        dt_prop.assert(
-            &mut conn, PropertyType::DatatypeProperty, "title",
-            None, &["foundation:Task"], Some("xsd:string"), None, "test",
-        ).unwrap();
+        dt_prop
+            .assert(
+                &mut conn,
+                PropertyType::DatatypeProperty,
+                "title",
+                None,
+                &["foundation:Task"],
+                Some("xsd:string"),
+                None,
+                "test",
+            )
+            .unwrap();
 
         let task = Individual::new("foundation:MyTask");
-        task.assert(&mut conn, "foundation:Task", "My Task", "https://example.com/task.svg", "test").unwrap();
+        task.assert(
+            &mut conn,
+            "foundation:Task",
+            "My Task",
+            "https://example.com/task.svg",
+            "test",
+        )
+        .unwrap();
 
         let result = task.add_property(
-            &mut conn, "foundation:relatedTo",
-            vec![Object::Literal { value: "some-string".to_string(), datatype: Some("xsd:string".to_string()), language: None }],
+            &mut conn,
+            "foundation:relatedTo",
+            vec![Object::Literal {
+                value: "some-string".to_string(),
+                datatype: Some("xsd:string".to_string()),
+                language: None,
+            }],
             "test",
         );
         assert!(result.is_err(), "Should reject literal on ObjectProperty");
         if let Err(OwlError::ValidationError(msg)) = result {
-            assert!(msg.contains("ObjectProperty"), "Error should mention ObjectProperty");
+            assert!(
+                msg.contains("ObjectProperty"),
+                "Error should mention ObjectProperty"
+            );
         } else {
             panic!("Expected ValidationError");
         }
 
         let result = task.add_property(
-            &mut conn, "foundation:title",
+            &mut conn,
+            "foundation:title",
             vec![Object::Iri("foundation:MyTask".to_string())],
             "test",
         );
         assert!(result.is_err(), "Should reject IRI on DatatypeProperty");
         if let Err(OwlError::ValidationError(msg)) = result {
-            assert!(msg.contains("DatatypeProperty"), "Error should mention DatatypeProperty");
+            assert!(
+                msg.contains("DatatypeProperty"),
+                "Error should mention DatatypeProperty"
+            );
         } else {
             panic!("Expected ValidationError");
         }
@@ -536,31 +679,75 @@ mod tests {
         let mut conn = setup_test_db();
 
         let bug_class = Class::new("foundation:Bug");
-        bug_class.assert(&mut conn, ClassType::OwlClass, "Bug", "https://example.com/bug.svg", None, "test").unwrap();
+        bug_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Bug",
+                "https://example.com/bug.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let user_story_class = Class::new("foundation:UserStory");
-        user_story_class.assert(&mut conn, ClassType::OwlClass, "User Story", "https://example.com/story.svg", None, "test").unwrap();
+        user_story_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "User Story",
+                "https://example.com/story.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let product_class = Class::new("foundation:SoftwareProduct");
-        product_class.assert(&mut conn, ClassType::OwlClass, "Software Product", "https://example.com/product.svg", None, "test").unwrap();
+        product_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Software Product",
+                "https://example.com/product.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let bug_of_prop = Property::new("foundation:bugOf");
-        bug_of_prop.assert(
-            &mut conn,
-            PropertyType::ObjectProperty,
-            "bug of",
-            None,
-            &["foundation:Bug"],
-            Some("foundation:UserStory"),
-            None,
-            "test",
-        ).unwrap();
+        bug_of_prop
+            .assert(
+                &mut conn,
+                PropertyType::ObjectProperty,
+                "bug of",
+                None,
+                &["foundation:Bug"],
+                Some("foundation:UserStory"),
+                None,
+                "test",
+            )
+            .unwrap();
 
         let bug = Individual::new("foundation:MyBug");
-        bug.assert(&mut conn, "foundation:Bug", "My Bug", "https://example.com/bug.svg", "test").unwrap();
+        bug.assert(
+            &mut conn,
+            "foundation:Bug",
+            "My Bug",
+            "https://example.com/bug.svg",
+            "test",
+        )
+        .unwrap();
 
         let product = Individual::new("foundation:FoundationProduct");
-        product.assert(&mut conn, "foundation:SoftwareProduct", "Foundation Product", "https://example.com/product.svg", "test").unwrap();
+        product
+            .assert(
+                &mut conn,
+                "foundation:SoftwareProduct",
+                "Foundation Product",
+                "https://example.com/product.svg",
+                "test",
+            )
+            .unwrap();
 
         let result = bug.add_property(
             &mut conn,
@@ -571,8 +758,14 @@ mod tests {
 
         assert!(result.is_err(), "Should reject value of wrong class");
         if let Err(OwlError::ValidationError(msg)) = result {
-            assert!(msg.contains("foundation:UserStory"), "Error should mention the expected class");
-            assert!(msg.contains("foundation:FoundationProduct"), "Error should mention the rejected value");
+            assert!(
+                msg.contains("foundation:UserStory"),
+                "Error should mention the expected class"
+            );
+            assert!(
+                msg.contains("foundation:FoundationProduct"),
+                "Error should mention the rejected value"
+            );
         } else {
             panic!("Expected ValidationError");
         }
@@ -583,28 +776,63 @@ mod tests {
         let mut conn = setup_test_db();
 
         let bug_class = Class::new("foundation:Bug");
-        bug_class.assert(&mut conn, ClassType::OwlClass, "Bug", "https://example.com/bug.svg", None, "test").unwrap();
+        bug_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Bug",
+                "https://example.com/bug.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let user_story_class = Class::new("foundation:UserStory");
-        user_story_class.assert(&mut conn, ClassType::OwlClass, "User Story", "https://example.com/story.svg", None, "test").unwrap();
+        user_story_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "User Story",
+                "https://example.com/story.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let bug_of_prop = Property::new("foundation:bugOf");
-        bug_of_prop.assert(
-            &mut conn,
-            PropertyType::ObjectProperty,
-            "bug of",
-            None,
-            &["foundation:Bug"],
-            Some("foundation:UserStory"),
-            None,
-            "test",
-        ).unwrap();
+        bug_of_prop
+            .assert(
+                &mut conn,
+                PropertyType::ObjectProperty,
+                "bug of",
+                None,
+                &["foundation:Bug"],
+                Some("foundation:UserStory"),
+                None,
+                "test",
+            )
+            .unwrap();
 
         let bug = Individual::new("foundation:MyBug");
-        bug.assert(&mut conn, "foundation:Bug", "My Bug", "https://example.com/bug.svg", "test").unwrap();
+        bug.assert(
+            &mut conn,
+            "foundation:Bug",
+            "My Bug",
+            "https://example.com/bug.svg",
+            "test",
+        )
+        .unwrap();
 
         let story = Individual::new("foundation:MyStory");
-        story.assert(&mut conn, "foundation:UserStory", "My Story", "https://example.com/story.svg", "test").unwrap();
+        story
+            .assert(
+                &mut conn,
+                "foundation:UserStory",
+                "My Story",
+                "https://example.com/story.svg",
+                "test",
+            )
+            .unwrap();
 
         let result = bug.add_property(
             &mut conn,
@@ -621,35 +849,86 @@ mod tests {
         let mut conn = setup_test_db();
 
         let task_class = Class::new("foundation:Task");
-        task_class.assert(&mut conn, ClassType::OwlClass, "Task", "https://example.com/task.svg", None, "test").unwrap();
+        task_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Task",
+                "https://example.com/task.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let work_item_class = Class::new("foundation:WorkItem");
-        work_item_class.assert(&mut conn, ClassType::OwlClass, "Work Item", "https://example.com/work.svg", None, "test").unwrap();
+        work_item_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Work Item",
+                "https://example.com/work.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
-        store::assert_triples(&mut conn, &[
-            Triple::new("foundation:Task", rdfs::SUB_CLASS_OF, Object::Iri("foundation:WorkItem".to_string())),
-        ], "test").unwrap();
+        store::assert_triples(
+            &mut conn,
+            &[Triple::new(
+                "foundation:Task",
+                rdfs::SUB_CLASS_OF,
+                Object::Iri("foundation:WorkItem".to_string()),
+            )],
+            "test",
+        )
+        .unwrap();
 
         let assigned_class = Class::new("foundation:Assignment");
-        assigned_class.assert(&mut conn, ClassType::OwlClass, "Assignment", "https://example.com/assign.svg", None, "test").unwrap();
+        assigned_class
+            .assert(
+                &mut conn,
+                ClassType::OwlClass,
+                "Assignment",
+                "https://example.com/assign.svg",
+                None,
+                "test",
+            )
+            .unwrap();
 
         let related_prop = Property::new("foundation:relatedWorkItem");
-        related_prop.assert(
-            &mut conn,
-            PropertyType::ObjectProperty,
-            "related work item",
-            None,
-            &["foundation:Assignment"],
-            Some("foundation:WorkItem"),
-            None,
-            "test",
-        ).unwrap();
+        related_prop
+            .assert(
+                &mut conn,
+                PropertyType::ObjectProperty,
+                "related work item",
+                None,
+                &["foundation:Assignment"],
+                Some("foundation:WorkItem"),
+                None,
+                "test",
+            )
+            .unwrap();
 
         let assignment = Individual::new("foundation:MyAssignment");
-        assignment.assert(&mut conn, "foundation:Assignment", "My Assignment", "https://example.com/assign.svg", "test").unwrap();
+        assignment
+            .assert(
+                &mut conn,
+                "foundation:Assignment",
+                "My Assignment",
+                "https://example.com/assign.svg",
+                "test",
+            )
+            .unwrap();
 
         let task = Individual::new("foundation:MyTask");
-        task.assert(&mut conn, "foundation:Task", "My Task", "https://example.com/task.svg", "test").unwrap();
+        task.assert(
+            &mut conn,
+            "foundation:Task",
+            "My Task",
+            "https://example.com/task.svg",
+            "test",
+        )
+        .unwrap();
 
         let result = assignment.add_property(
             &mut conn,
@@ -658,6 +937,9 @@ mod tests {
             "test",
         );
 
-        assert!(result.is_ok(), "Should accept instance of a subclass of the declared range");
+        assert!(
+            result.is_ok(),
+            "Should accept instance of a subclass of the declared range"
+        );
     }
 }

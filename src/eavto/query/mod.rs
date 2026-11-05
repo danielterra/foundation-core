@@ -1,8 +1,20 @@
+mod entity_revision;
+mod execution_history;
 mod find;
 mod records;
 
+pub use entity_revision::*;
+pub use execution_history::*;
 pub use find::*;
 pub use records::*;
+
+pub fn current_snapshot_tx(conn: &Connection) -> Result<i64> {
+    Ok(
+        conn.query_row("SELECT COALESCE(MAX(tx), 0) FROM triples", [], |row| {
+            row.get(0)
+        })?,
+    )
+}
 
 use super::object_type::Object;
 use super::query_result_type::QueryResult;
@@ -78,6 +90,138 @@ pub fn get_by_entity(conn: &Connection, entity: &str) -> Result<QueryResult> {
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(QueryResult::new(triples))
+}
+
+/// Returns one predicate's active values as they existed at `snapshot_tx`.
+///
+/// The selected value set is the latest transaction for `(entity, predicate)` at or before
+/// the snapshot. A later retraction does not affect an earlier snapshot.
+pub fn get_by_entity_predicate_as_of(
+    conn: &Connection,
+    entity: &str,
+    predicate: &str,
+    snapshot_tx: i64,
+) -> Result<QueryResult> {
+    let mut stmt = conn.prepare(
+        "WITH latest_group AS (
+             SELECT MAX(tx) AS group_tx
+             FROM triples
+             WHERE subject = ?1 AND predicate = ?2 AND tx <= ?3
+         )
+         SELECT t.subject, t.predicate, t.object, t.object_value, t.object_datatype,
+                t.object_language, t.object_type, t.object_number, t.object_integer,
+                t.object_boolean, t.tx, t.origin_id, t.retracted, t.created_at
+         FROM triples t
+         JOIN latest_group g ON t.tx = g.group_tx
+         WHERE t.subject = ?1 AND t.predicate = ?2 AND t.retracted = 0
+         ORDER BY COALESCE(t.object, t.object_value) ASC",
+    )?;
+    let triples = stmt
+        .query_map(
+            rusqlite::params![entity, predicate, snapshot_tx],
+            row_to_triple,
+        )?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(QueryResult::new(triples))
+}
+
+/// One fully typed value from an entity property group, together with the total active values
+/// in that group at the requested snapshot.
+#[derive(Debug, Clone)]
+pub struct GroupedPropertyTriple {
+    pub triple: Triple,
+    pub group_total: usize,
+}
+
+/// Returns at most `limit_per_group` fully typed values per predicate for one entity at
+/// `snapshot_tx`. Groups use the same order as [`get_property_values_page`]: `tx DESC`, then
+/// `COALESCE(object, object_value) ASC`. The winning transaction for each predicate is selected
+/// before filtering retracted rows, so a later retraction is invisible to an earlier snapshot.
+///
+/// The excluded predicates are supplied by the caller to keep EAVTO domain-agnostic.
+pub fn get_entity_property_triples_grouped_limited_as_of(
+    conn: &Connection,
+    subject: &str,
+    snapshot_tx: i64,
+    limit_per_group: usize,
+    excluded_predicates: &[&str],
+) -> Result<Vec<GroupedPropertyTriple>> {
+    let exclude_latest = if excluded_predicates.is_empty() {
+        String::new()
+    } else {
+        let placeholders = excluded_predicates
+            .iter()
+            .enumerate()
+            .map(|(index, _)| format!("?{}", index + 3))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("AND predicate NOT IN ({placeholders})")
+    };
+    let exclude_values = if excluded_predicates.is_empty() {
+        String::new()
+    } else {
+        let placeholders = excluded_predicates
+            .iter()
+            .enumerate()
+            .map(|(index, _)| format!("?{}", index + 3))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("AND t.predicate NOT IN ({placeholders})")
+    };
+    let limit_param = excluded_predicates.len() + 3;
+    let sql = format!(
+        "WITH latest_groups AS (
+             SELECT predicate, MAX(tx) AS group_tx
+             FROM triples
+             WHERE subject = ?1 AND tx <= ?2 {exclude_latest}
+             GROUP BY predicate
+         ), active_values AS (
+             SELECT t.subject, t.predicate, t.object, t.object_value, t.object_datatype,
+                    t.object_language, t.object_type, t.object_number, t.object_integer,
+                    t.object_boolean, t.tx, t.origin_id, t.retracted, t.created_at
+             FROM triples t
+             JOIN latest_groups g ON t.predicate = g.predicate AND t.tx = g.group_tx
+             WHERE t.subject = ?1 AND t.tx <= ?2 AND t.retracted = 0 {exclude_values}
+         ), ranked AS (
+             SELECT active_values.*,
+                    COUNT(*) OVER (PARTITION BY predicate) AS group_total,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY predicate
+                        ORDER BY tx DESC, COALESCE(object, object_value) ASC
+                    ) AS row_in_group
+             FROM active_values
+         )
+         SELECT subject, predicate, object, object_value, object_datatype, object_language,
+                object_type, object_number, object_integer, object_boolean,
+                tx, origin_id, retracted, created_at, group_total
+         FROM ranked
+         WHERE row_in_group <= ?{limit_param}
+         ORDER BY tx DESC, COALESCE(object, object_value) ASC"
+    );
+
+    let mut params: Vec<SqlValue> = vec![
+        SqlValue::Text(subject.to_string()),
+        SqlValue::Integer(snapshot_tx),
+    ];
+    params.extend(
+        excluded_predicates
+            .iter()
+            .map(|predicate| SqlValue::Text((*predicate).to_string())),
+    );
+    params.push(SqlValue::Integer(limit_per_group as i64));
+
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+            let triple = row_to_triple(row)?;
+            let group_total = row.get::<_, i64>(14)?.max(0) as usize;
+            Ok(GroupedPropertyTriple {
+                triple,
+                group_total,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
 }
 
 pub fn get_retracted_by_entity(conn: &Connection, entity: &str) -> Result<QueryResult> {
@@ -942,8 +1086,9 @@ pub fn get_property_values_grouped_limited(
 /// Keyset-paginated property values page ordered by `value_tx DESC, COALESCE(object, object_value) ASC`,
 /// as-of `snapshot_tx`.
 ///
-/// **As-of semantics**: a value row is current iff its MAX(tx) ≤ snapshot_tx for that
-/// (subject, predicate, value) combination is NOT retracted — mirrors `get_backlinks_page`.
+/// **As-of semantics**: the complete value set is the latest transaction for the
+/// (subject, predicate) pair at or before `snapshot_tx`. Assertions replace the set,
+/// while append operations write the complete appended set in one transaction.
 ///
 /// **Composite cursor**: `after_cursor = Some((cursor_tx, cursor_obj_key))` where
 /// `cursor_obj_key = COALESCE(object, object_value)` of the last returned row.
@@ -965,7 +1110,14 @@ pub fn get_property_values_page(
 ) -> Result<Vec<PropertyValueRow>> {
     let base_cte = format!(
         "
-        WITH vals_raw AS (
+        WITH latest_group AS (
+            SELECT MAX(tx) AS group_tx
+            FROM triples
+            WHERE subject = ?1
+              AND predicate = ?2
+              AND tx <= {snapshot_tx}
+        ),
+        vals_raw AS (
             SELECT t.object,
                    t.object_value,
                    t.object_datatype,
@@ -973,17 +1125,9 @@ pub fn get_property_values_page(
                    t.object_language,
                    t.tx AS value_tx
             FROM triples t
+            JOIN latest_group g ON t.tx = g.group_tx
             WHERE t.subject = ?1
               AND t.predicate = ?2
-              AND t.tx <= {snapshot_tx}
-              AND t.tx = (
-                  SELECT MAX(t2.tx) FROM triples t2
-                  WHERE t2.subject = t.subject
-                    AND t2.predicate = t.predicate
-                    AND t2.object IS t.object
-                    AND t2.object_value IS t.object_value
-                    AND t2.tx <= {snapshot_tx}
-              )
               AND t.retracted = 0
         )
         SELECT object, object_value, object_datatype, object_type, object_language, value_tx
@@ -1041,6 +1185,79 @@ pub fn get_property_values_page(
         x
     };
     Ok(rows)
+}
+
+#[cfg(test)]
+mod property_values_page_snapshot_tests {
+    use super::*;
+    use crate::eavto::test_helpers::setup_test_db;
+
+    fn insert_group(conn: &Connection, values: &[&str]) -> i64 {
+        conn.execute(
+            "INSERT INTO transactions (origin, created_at) VALUES ('test', 0)",
+            [],
+        )
+        .unwrap();
+        let tx = conn.last_insert_rowid();
+        for value in values {
+            conn.execute(
+                "INSERT INTO triples \
+                 (subject, predicate, object_value, object_type, tx, origin_id, retracted, created_at, is_current) \
+                 VALUES ('ex:Subject', 'ex:values', ?1, 'literal', ?2, 1, 0, 0, 1)",
+                rusqlite::params![value, tx],
+            )
+            .unwrap();
+        }
+        tx
+    }
+
+    fn page(
+        conn: &Connection,
+        snapshot_tx: i64,
+        after: Option<(i64, String)>,
+        limit: usize,
+    ) -> Vec<PropertyValueRow> {
+        get_property_values_page(conn, "ex:Subject", "ex:values", after, limit, snapshot_tx)
+            .unwrap()
+    }
+
+    fn page_values(rows: &[PropertyValueRow]) -> Vec<String> {
+        rows.iter()
+            .map(|row| row.object_value.clone().unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn replaced_multivalue_set_does_not_resurrect_removed_values_across_pages() {
+        let conn = setup_test_db();
+        let tx_abc = insert_group(&conn, &["A", "B", "C"]);
+        let tx_ab = insert_group(&conn, &["A", "B"]);
+
+        let first = page(&conn, tx_ab, None, 1);
+        assert_eq!(page_values(&first), ["A"]);
+        let cursor = (first[0].value_tx, first[0].object_value.clone().unwrap());
+        let second = page(&conn, tx_ab, Some(cursor), 2);
+        assert_eq!(page_values(&second), ["B"]);
+        assert_eq!(second.len(), 1, "removed historical C must not reappear");
+
+        let historical = page(&conn, tx_abc, None, 10);
+        assert_eq!(page_values(&historical), ["A", "B", "C"]);
+    }
+
+    #[test]
+    fn later_write_does_not_change_pages_pinned_to_prior_snapshot() {
+        let conn = setup_test_db();
+        let _tx_abc = insert_group(&conn, &["A", "B", "C"]);
+        let tx_ab = insert_group(&conn, &["A", "B"]);
+
+        let first = page(&conn, tx_ab, None, 1);
+        let cursor = (first[0].value_tx, first[0].object_value.clone().unwrap());
+        insert_group(&conn, &["A"]);
+
+        let second = page(&conn, tx_ab, Some(cursor), 10);
+        assert_eq!(page_values(&second), ["B"]);
+        assert_eq!(page(&conn, tx_ab, None, 10).len(), 2);
+    }
 }
 
 pub fn get_predicates_for_subjects(

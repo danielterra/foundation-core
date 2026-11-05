@@ -1,6 +1,9 @@
 use crate::eavto::Connection;
-use crate::eavto::{store, query, Triple, Object};
-use crate::owl::{Result, OwlError, Thing, vocabulary::{rdf, rdfs, owl}};
+use crate::eavto::{query, store, Object, Triple};
+use crate::owl::{
+    vocabulary::{owl, rdf, rdfs},
+    OwlError, Result, Thing,
+};
 
 const CLASS_INSTANCE_LIMIT: usize = 50;
 
@@ -44,7 +47,10 @@ impl Class {
     /// Cheap existence check: returns true iff `iri` is a known class in the graph.
     /// Accepts OWL/RDFS built-in roots that may not have explicit triples.
     pub fn exists(conn: &Connection, iri: &str) -> bool {
-        if matches!(iri, "owl:Thing" | "rdfs:Resource" | "rdfs:Class" | "owl:Class") {
+        if matches!(
+            iri,
+            "owl:Thing" | "rdfs:Resource" | "rdfs:Class" | "owl:Class"
+        ) {
             return true;
         }
         let types_result = match query::get_by_entity_predicate(conn, iri, rdf::TYPE) {
@@ -52,7 +58,8 @@ impl Class {
             Err(_) => return false,
         };
         types_result.triples.iter().any(|t| {
-            t.object.as_iri()
+            t.object
+                .as_iri()
                 .map(|type_iri| type_iri == rdfs::CLASS || type_iri == owl::CLASS)
                 .unwrap_or(false)
         })
@@ -97,7 +104,8 @@ impl Class {
 
         let types_result = query::get_by_entity_predicate(conn, &iri, rdf::TYPE)?;
         let is_class = types_result.triples.iter().any(|t| {
-            t.object.as_iri()
+            t.object
+                .as_iri()
                 .map(|type_iri| type_iri == rdfs::CLASS || type_iri == owl::CLASS)
                 .unwrap_or(false)
         });
@@ -106,29 +114,37 @@ impl Class {
         }
 
         let label_result = query::get_by_entity_predicate(conn, &iri, rdfs::LABEL)?;
-        let label = label_result.triples.first()
+        let label = label_result
+            .triples
+            .first()
             .and_then(|t| t.object.as_literal());
 
         let icon_result = query::get_by_entity_predicate(conn, &iri, "foundation:hasIcon")?;
-        let icon = icon_result.triples.first()
-            .and_then(|t| match &t.object {
-                crate::eavto::Object::Iri(icon_iri) => crate::owl::icon_iri_to_display(conn, icon_iri),
-                crate::eavto::Object::Literal { value, .. } =>
-                    Some(crate::owl::icon_literal_to_display(value)),
-                _ => None,
-            });
+        let icon = icon_result.triples.first().and_then(|t| match &t.object {
+            crate::eavto::Object::Iri(icon_iri) => crate::owl::icon_iri_to_display(conn, icon_iri),
+            crate::eavto::Object::Literal { value, .. } => {
+                Some(crate::owl::icon_literal_to_display(value))
+            }
+            _ => None,
+        });
 
         let comment_result = query::get_by_entity_predicate(conn, &iri, rdfs::COMMENT)?;
-        let comment = comment_result.triples.first()
+        let comment = comment_result
+            .triples
+            .first()
             .and_then(|t| t.object.as_literal());
 
-        let types: Vec<Thing> = types_result.triples.iter()
+        let types: Vec<Thing> = types_result
+            .triples
+            .iter()
             .filter_map(|t| t.object.as_iri())
             .map(|type_iri| Thing::get(conn, type_iri))
             .collect();
 
         let super_result = query::get_by_entity_predicate(conn, &iri, rdfs::SUB_CLASS_OF)?;
-        let super_classes: Vec<Thing> = super_result.triples.iter()
+        let super_classes: Vec<Thing> = super_result
+            .triples
+            .iter()
             .filter_map(|t| match &t.object {
                 Object::Iri(iri) => Some(iri.as_str()),
                 _ => None,
@@ -137,14 +153,14 @@ impl Class {
             .collect();
 
         let sub_result = query::get_by_predicate_object(conn, rdfs::SUB_CLASS_OF, &iri)?;
-        let sub_classes: Vec<Thing> = sub_result.triples.iter()
+        let sub_classes: Vec<Thing> = sub_result
+            .triples
+            .iter()
             .map(|t| Thing::get(conn, &t.subject))
             .collect();
 
         let disjoint_iris = Self::collect_direct_disjoint_iris(conn, &iri)?;
-        let disjoint_with: Vec<Thing> = disjoint_iris.iter()
-            .map(|d| Thing::get(conn, d))
-            .collect();
+        let disjoint_with: Vec<Thing> = disjoint_iris.iter().map(|d| Thing::get(conn, d)).collect();
 
         let properties = Self::get_properties(conn, &iri)?;
 
@@ -152,34 +168,42 @@ impl Class {
         // (including historically-retracted ones), then filters to retracted=0. This correctly
         // handles entities whose rdf:type was ever superseded without a retraction triple,
         // and avoids the O(N) correlated subquery that previously took ~79ms for 1178 emails.
-        let backlink_total: usize = conn.query_row(
-            "SELECT COUNT(DISTINCT subject) FROM (
+        let backlink_total: usize = conn
+            .query_row(
+                "SELECT COUNT(DISTINCT subject) FROM (
                 SELECT subject,
                        MAX(tx) OVER (PARTITION BY subject, predicate) AS max_tx,
                        tx, retracted
                 FROM triples
                 WHERE predicate = 'rdf:type' AND object = ?
              ) WHERE tx = max_tx AND retracted = 0",
-            rusqlite::params![&iri],
-            |row| row.get(0),
-        ).unwrap_or(0);
+                rusqlite::params![&iri],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
-        let mut instance_stmt = conn.prepare(
-            "SELECT DISTINCT subject FROM (
+        let mut instance_stmt = conn
+            .prepare(
+                "SELECT DISTINCT subject FROM (
                 SELECT subject,
                        MAX(tx) OVER (PARTITION BY subject, predicate) AS max_tx,
                        tx, retracted
                 FROM triples
                 WHERE predicate = 'rdf:type' AND object = ?
              ) WHERE tx = max_tx AND retracted = 0
-             ORDER BY tx DESC LIMIT ?"
-        ).map_err(|e| crate::owl::OwlError::DatabaseError(e.to_string()))?;
+             ORDER BY tx DESC LIMIT ?",
+            )
+            .map_err(|e| crate::owl::OwlError::DatabaseError(e.to_string()))?;
         let instance_iris: Vec<String> = instance_stmt
-            .query_map(rusqlite::params![&iri, CLASS_INSTANCE_LIMIT as i64], |row| row.get(0))
+            .query_map(
+                rusqlite::params![&iri, CLASS_INSTANCE_LIMIT as i64],
+                |row| row.get(0),
+            )
             .map_err(|e| crate::owl::OwlError::DatabaseError(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect();
-        let backlinks: Vec<(String, String, Object)> = instance_iris.into_iter()
+        let backlinks: Vec<(String, String, Object)> = instance_iris
+            .into_iter()
             .map(|subject| (subject, rdf::TYPE.to_string(), Object::Iri(iri.clone())))
             .collect();
 
@@ -195,23 +219,37 @@ impl Class {
         };
 
         const SKIP: &[&str] = &[
-            rdf::TYPE, rdfs::LABEL, rdfs::COMMENT, rdfs::SUB_CLASS_OF,
-            "foundation:hasIcon", "foundation:allowedStatus", owl::ONE_OF,
+            rdf::TYPE,
+            rdfs::LABEL,
+            rdfs::COMMENT,
+            rdfs::SUB_CLASS_OF,
+            "foundation:hasIcon",
+            "foundation:allowedStatus",
+            owl::ONE_OF,
         ];
 
         let all_triples_result = query::get_by_entity(conn, &iri)?;
-        let concept_properties: Vec<(String, Object)> = all_triples_result.triples
+        let concept_properties: Vec<(String, Object)> = all_triples_result
+            .triples
             .into_iter()
-            .filter(|t| !SKIP.contains(&t.predicate.as_str()) && !matches!(t.object, Object::Blank(_)))
+            .filter(|t| {
+                !SKIP.contains(&t.predicate.as_str()) && !matches!(t.object, Object::Blank(_))
+            })
             .map(|t| (t.predicate, t.object))
             .collect();
 
         let elapsed = t0.elapsed().as_millis();
         if elapsed > 20 {
-            crate::diagnostics::log_backend("debug", &format!(
-                "[OWL] Class::get({}) instances={} props={} {}ms",
-                iri, backlink_total, properties.len(), elapsed
-            ));
+            crate::diagnostics::log_backend(
+                "debug",
+                &format!(
+                    "[OWL] Class::get({}) instances={} props={} {}ms",
+                    iri,
+                    backlink_total,
+                    properties.len(),
+                    elapsed
+                ),
+            );
         }
 
         Ok(Some(Self {
@@ -241,10 +279,7 @@ impl Class {
 
     /// Get all properties for this class (declared, used, and inherited)
     /// Returns Vec<(property_iri, source_class_iri)>
-    pub fn get_properties(
-        conn: &Connection,
-        class_iri: &str
-    ) -> Result<Vec<(String, String)>> {
+    pub fn get_properties(conn: &Connection, class_iri: &str) -> Result<Vec<(String, String)>> {
         let mut all_properties: Vec<(String, String)> = Vec::new();
         let mut seen = std::collections::HashSet::new();
 
@@ -266,7 +301,9 @@ impl Class {
         }
 
         let super_result = query::get_by_entity_predicate(conn, class_iri, rdfs::SUB_CLASS_OF)?;
-        let super_classes: Vec<String> = super_result.triples.iter()
+        let super_classes: Vec<String> = super_result
+            .triples
+            .iter()
             .filter_map(|t| match &t.object {
                 Object::Iri(iri) | Object::Blank(iri) => Some(iri.clone()),
                 _ => None,
@@ -296,7 +333,7 @@ impl Class {
         label: &str,
         icon: &str,
         super_class: Option<&str>,
-        origin: &str
+        origin: &str,
     ) -> Result<()> {
         crate::owl::check_system_locked(conn, &self.iri, None)?;
         let type_iri = match class_type {
@@ -320,13 +357,15 @@ impl Class {
         store::assert_triples(conn, &[icon_triple], origin)?;
 
         let parent = super_class.unwrap_or(owl::THING);
-        let subclass_triple =
-            Triple::new(&self.iri, rdfs::SUB_CLASS_OF, Object::Iri(parent.to_string()));
+        let subclass_triple = Triple::new(
+            &self.iri,
+            rdfs::SUB_CLASS_OF,
+            Object::Iri(parent.to_string()),
+        );
         store::assert_triples(conn, &[subclass_triple], origin)?;
 
         Ok(())
     }
-
 
     /// Get all instances of this class and all its subclasses (polymorphic, returned as IRIs only)
     pub fn get_instances(conn: &Connection, class_iri: &str) -> Result<Vec<String>> {
@@ -348,7 +387,9 @@ impl Class {
     pub fn find_all_iris(conn: &Connection) -> Result<Vec<String>> {
         let owl_result = query::get_by_predicate_object(conn, rdf::TYPE, owl::CLASS)?;
         let rdfs_result = query::get_by_predicate_object(conn, rdf::TYPE, rdfs::CLASS)?;
-        let mut iris: Vec<String> = owl_result.triples.into_iter()
+        let mut iris: Vec<String> = owl_result
+            .triples
+            .into_iter()
             .chain(rdfs_result.triples)
             .map(|t| t.subject)
             .collect();
@@ -421,8 +462,22 @@ impl Class {
         conn: &Connection,
         domain_class_iris: &[String],
         property_type_iris: &[&str],
-    ) -> Result<Vec<(String, Option<String>, Option<String>, Option<String>, String)>> {
-        Self::get_properties_for_domain_classes_bounded(conn, domain_class_iris, property_type_iris, 500, 0)
+    ) -> Result<
+        Vec<(
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            String,
+        )>,
+    > {
+        Self::get_properties_for_domain_classes_bounded(
+            conn,
+            domain_class_iris,
+            property_type_iris,
+            500,
+            0,
+        )
     }
 
     /// Paginated variant; `limit = 0` means no cap.
@@ -432,7 +487,15 @@ impl Class {
         property_type_iris: &[&str],
         limit: usize,
         offset: usize,
-    ) -> Result<Vec<(String, Option<String>, Option<String>, Option<String>, String)>> {
+    ) -> Result<
+        Vec<(
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            String,
+        )>,
+    > {
         if domain_class_iris.is_empty() {
             return Ok(vec![]);
         }
@@ -462,7 +525,8 @@ impl Class {
                 None => continue,
             };
 
-            let prop_type_iri = triples.iter()
+            let prop_type_iri = triples
+                .iter()
                 .filter(|t| t.predicate == rdf::TYPE)
                 .find_map(|t| t.object.as_iri().map(|s| s.to_string()));
 
@@ -473,15 +537,22 @@ impl Class {
                 continue;
             }
 
-            let label = triples.iter()
+            let label = triples
+                .iter()
                 .find(|t| t.predicate == rdfs::LABEL)
                 .and_then(|t| t.object.as_literal());
 
-            let icon = triples.iter()
+            let icon = triples
+                .iter()
                 .find(|t| t.predicate == "foundation:icon")
-                .and_then(|t| t.object.as_literal().or_else(|| t.object.as_iri().map(|s| s.to_string())));
+                .and_then(|t| {
+                    t.object
+                        .as_literal()
+                        .or_else(|| t.object.as_iri().map(|s| s.to_string()))
+                });
 
-            let range = triples.iter()
+            let range = triples
+                .iter()
                 .find(|t| t.predicate == rdfs::RANGE)
                 .and_then(|t| t.object.as_iri().map(|s| s.to_string()));
 
@@ -512,27 +583,56 @@ impl Class {
     pub fn set_label(conn: &mut Connection, iri: &str, label: &str, origin: &str) -> Result<()> {
         let old = query::get_by_entity_predicate(conn, iri, rdfs::LABEL)?;
         for triple in old.triples {
-            store::retract_triples(conn, &[Triple::new(iri, rdfs::LABEL, triple.object)], origin)?;
+            store::retract_triples(
+                conn,
+                &[Triple::new(iri, rdfs::LABEL, triple.object)],
+                origin,
+            )?;
         }
-        store::assert_triples(conn, &[Triple::new(iri, rdfs::LABEL, Object::Literal {
-            value: label.to_string(),
-            datatype: Some("xsd:string".to_string()),
-            language: None,
-        })], origin)?;
+        store::assert_triples(
+            conn,
+            &[Triple::new(
+                iri,
+                rdfs::LABEL,
+                Object::Literal {
+                    value: label.to_string(),
+                    datatype: Some("xsd:string".to_string()),
+                    language: None,
+                },
+            )],
+            origin,
+        )?;
         Ok(())
     }
 
     /// Replace the comment of an existing class (or add one if not present)
-    pub fn set_comment(conn: &mut Connection, iri: &str, comment: &str, origin: &str) -> Result<()> {
+    pub fn set_comment(
+        conn: &mut Connection,
+        iri: &str,
+        comment: &str,
+        origin: &str,
+    ) -> Result<()> {
         let old = query::get_by_entity_predicate(conn, iri, rdfs::COMMENT)?;
         for triple in old.triples {
-            store::retract_triples(conn, &[Triple::new(iri, rdfs::COMMENT, triple.object)], origin)?;
+            store::retract_triples(
+                conn,
+                &[Triple::new(iri, rdfs::COMMENT, triple.object)],
+                origin,
+            )?;
         }
-        store::assert_triples(conn, &[Triple::new(iri, rdfs::COMMENT, Object::Literal {
-            value: comment.to_string(),
-            datatype: Some("xsd:string".to_string()),
-            language: None,
-        })], origin)?;
+        store::assert_triples(
+            conn,
+            &[Triple::new(
+                iri,
+                rdfs::COMMENT,
+                Object::Literal {
+                    value: comment.to_string(),
+                    datatype: Some("xsd:string".to_string()),
+                    language: None,
+                },
+            )],
+            origin,
+        )?;
         Ok(())
     }
 
@@ -641,7 +741,10 @@ impl Class {
     }
 
     /// Resolve owl:members of an AllDisjointClasses node to a flat list of class IRIs.
-    pub fn get_all_disjoint_classes_members(conn: &Connection, adc_iri: &str) -> Result<Vec<String>> {
+    pub fn get_all_disjoint_classes_members(
+        conn: &Connection,
+        adc_iri: &str,
+    ) -> Result<Vec<String>> {
         let members_triple = query::get_by_entity_predicate(conn, adc_iri, owl::MEMBERS)?;
         if let Some(triple) = members_triple.triples.first() {
             if let Some(list_head) = triple.object.as_iri() {
@@ -665,12 +768,14 @@ impl Class {
         for d in disjoint_with {
             if *d == iri {
                 return Err(OwlError::ValidationError(format!(
-                    "Class '{}' cannot be declared disjoint with itself", iri
+                    "Class '{}' cannot be declared disjoint with itself",
+                    iri
                 )));
             }
             if !Self::exists(conn, d) {
                 return Err(OwlError::ValidationError(format!(
-                    "Class '{}' does not exist — cannot declare disjointness with it", d
+                    "Class '{}' does not exist — cannot declare disjointness with it",
+                    d
                 )));
             }
         }
@@ -687,15 +792,27 @@ impl Class {
         for triple in backward.triples {
             store::retract_triples(
                 conn,
-                &[Triple::new(triple.subject, owl::DISJOINT_WITH, Object::Iri(iri.to_string()))],
+                &[Triple::new(
+                    triple.subject,
+                    owl::DISJOINT_WITH,
+                    Object::Iri(iri.to_string()),
+                )],
                 origin,
             )?;
         }
 
         let mut new_triples = Vec::new();
         for d in disjoint_with {
-            new_triples.push(Triple::new(iri, owl::DISJOINT_WITH, Object::Iri(d.to_string())));
-            new_triples.push(Triple::new(*d, owl::DISJOINT_WITH, Object::Iri(iri.to_string())));
+            new_triples.push(Triple::new(
+                iri,
+                owl::DISJOINT_WITH,
+                Object::Iri(d.to_string()),
+            ));
+            new_triples.push(Triple::new(
+                *d,
+                owl::DISJOINT_WITH,
+                Object::Iri(iri.to_string()),
+            ));
         }
         if !new_triples.is_empty() {
             store::assert_triples(conn, &new_triples, origin)?;
@@ -713,12 +830,14 @@ impl Class {
     ) -> Result<()> {
         if iri == disjoint_iri {
             return Err(OwlError::ValidationError(format!(
-                "Class '{}' cannot be declared disjoint with itself", iri
+                "Class '{}' cannot be declared disjoint with itself",
+                iri
             )));
         }
         if !Self::exists(conn, disjoint_iri) {
             return Err(OwlError::ValidationError(format!(
-                "Class '{}' does not exist — cannot declare disjointness with it", disjoint_iri
+                "Class '{}' does not exist — cannot declare disjointness with it",
+                disjoint_iri
             )));
         }
 
@@ -728,8 +847,16 @@ impl Class {
         }
 
         let triples = vec![
-            Triple::new(iri, owl::DISJOINT_WITH, Object::Iri(disjoint_iri.to_string())),
-            Triple::new(disjoint_iri, owl::DISJOINT_WITH, Object::Iri(iri.to_string())),
+            Triple::new(
+                iri,
+                owl::DISJOINT_WITH,
+                Object::Iri(disjoint_iri.to_string()),
+            ),
+            Triple::new(
+                disjoint_iri,
+                owl::DISJOINT_WITH,
+                Object::Iri(iri.to_string()),
+            ),
         ];
         store::assert_triples(conn, &triples, origin)?;
         Ok(())
@@ -743,8 +870,16 @@ impl Class {
         origin: &str,
     ) -> Result<()> {
         let triples = vec![
-            Triple::new(iri, owl::DISJOINT_WITH, Object::Iri(disjoint_iri.to_string())),
-            Triple::new(disjoint_iri, owl::DISJOINT_WITH, Object::Iri(iri.to_string())),
+            Triple::new(
+                iri,
+                owl::DISJOINT_WITH,
+                Object::Iri(disjoint_iri.to_string()),
+            ),
+            Triple::new(
+                disjoint_iri,
+                owl::DISJOINT_WITH,
+                Object::Iri(iri.to_string()),
+            ),
         ];
         store::retract_triples(conn, &triples, origin)?;
         Ok(())
@@ -763,7 +898,7 @@ impl Class {
     ) -> Result<String> {
         if members.len() < 2 {
             return Err(OwlError::ValidationError(
-                "owl:AllDisjointClasses requires at least 2 members".to_string()
+                "owl:AllDisjointClasses requires at least 2 members".to_string(),
             ));
         }
         let mut sorted: Vec<&str> = members.to_vec();
@@ -771,13 +906,14 @@ impl Class {
         sorted.dedup();
         if sorted.len() != members.len() {
             return Err(OwlError::ValidationError(
-                "owl:AllDisjointClasses members must be distinct".to_string()
+                "owl:AllDisjointClasses members must be distinct".to_string(),
             ));
         }
         for m in &sorted {
             if !Self::exists(conn, m) {
                 return Err(OwlError::ValidationError(format!(
-                    "Class '{}' does not exist — cannot include in AllDisjointClasses", m
+                    "Class '{}' does not exist — cannot include in AllDisjointClasses",
+                    m
                 )));
             }
         }
@@ -791,7 +927,10 @@ impl Class {
         let hash = hasher.finalize();
         let adc_iri = format!(
             "_:adc_{}",
-            hash[..8].iter().map(|b| format!("{:02x}", b)).collect::<String>()
+            hash[..8]
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<String>()
         );
 
         let existing_members = Self::get_all_disjoint_classes_members(conn, &adc_iri)?;
@@ -807,7 +946,9 @@ impl Class {
         for (i, member) in sorted.iter().enumerate() {
             let node = &nodes[i];
             list_triples.push(Triple::new(
-                node, rdf::FIRST, Object::Iri(member.to_string()),
+                node,
+                rdf::FIRST,
+                Object::Iri(member.to_string()),
             ));
             let rest = if i + 1 == sorted.len() {
                 Object::Iri(rdf::NIL.to_string())
@@ -819,11 +960,11 @@ impl Class {
         let head = nodes.remove(0);
 
         list_triples.push(Triple::new(
-            &adc_iri, rdf::TYPE, Object::Iri(owl::ALL_DISJOINT_CLASSES.to_string()),
+            &adc_iri,
+            rdf::TYPE,
+            Object::Iri(owl::ALL_DISJOINT_CLASSES.to_string()),
         ));
-        list_triples.push(Triple::new(
-            &adc_iri, owl::MEMBERS, Object::Blank(head),
-        ));
+        list_triples.push(Triple::new(&adc_iri, owl::MEMBERS, Object::Blank(head)));
 
         store::assert_triples(conn, &list_triples, origin)?;
         Ok(adc_iri)
@@ -845,11 +986,15 @@ impl Class {
                         break;
                     }
                     let node_triples = query::get_by_entity(conn, &current)?;
-                    let next = node_triples.triples.iter()
+                    let next = node_triples
+                        .triples
+                        .iter()
                         .find(|t| t.predicate == rdf::REST)
                         .and_then(|t| t.object.as_iri().map(|s| s.to_string()))
                         .unwrap_or_else(|| rdf::NIL.to_string());
-                    let triples: Vec<Triple> = node_triples.triples.into_iter()
+                    let triples: Vec<Triple> = node_triples
+                        .triples
+                        .into_iter()
                         .map(|t| Triple::new(t.subject, t.predicate, t.object))
                         .collect();
                     if !triples.is_empty() {
@@ -861,7 +1006,9 @@ impl Class {
         }
 
         let adc_triples = query::get_by_entity(conn, adc_iri)?;
-        let to_retract: Vec<Triple> = adc_triples.triples.into_iter()
+        let to_retract: Vec<Triple> = adc_triples
+            .triples
+            .into_iter()
             .map(|t| Triple::new(t.subject, t.predicate, t.object))
             .collect();
         if !to_retract.is_empty() {
@@ -939,22 +1086,26 @@ impl Class {
     pub fn restore(conn: &mut Connection, iri: &str, origin: &str) -> Result<usize> {
         use crate::owl::Individual;
 
-        let class_retract_tx = query::get_retraction_tx(conn, iri)?
-            .ok_or_else(|| OwlError::NotFound(
-                format!("Class '{}' has no retracted triples to restore", iri)
-            ))?;
+        let class_retract_tx = query::get_retraction_tx(conn, iri)?.ok_or_else(|| {
+            OwlError::NotFound(format!(
+                "Class '{}' has no retracted triples to restore",
+                iri
+            ))
+        })?;
 
         Individual::restore(conn, iri, origin)?;
 
-        let instance_iris: Vec<String> = conn.prepare(
-            "SELECT DISTINCT subject FROM triples
-             WHERE predicate = 'rdf:type' AND object = ? AND retracted = 1 AND tx >= ?"
-        ).map_err(|e| OwlError::DatabaseError(e.to_string()))
-        .and_then(|mut stmt| {
-            stmt.query_map(rusqlite::params![iri, class_retract_tx], |row| row.get(0))
-                .and_then(|rows| rows.collect::<rusqlite::Result<Vec<_>>>())
-                .map_err(|e| OwlError::DatabaseError(e.to_string()))
-        })?;
+        let instance_iris: Vec<String> = conn
+            .prepare(
+                "SELECT DISTINCT subject FROM triples
+             WHERE predicate = 'rdf:type' AND object = ? AND retracted = 1 AND tx >= ?",
+            )
+            .map_err(|e| OwlError::DatabaseError(e.to_string()))
+            .and_then(|mut stmt| {
+                stmt.query_map(rusqlite::params![iri, class_retract_tx], |row| row.get(0))
+                    .and_then(|rows| rows.collect::<rusqlite::Result<Vec<_>>>())
+                    .map_err(|e| OwlError::DatabaseError(e.to_string()))
+            })?;
 
         let count = instance_iris.len();
         for instance_iri in instance_iris {
@@ -968,7 +1119,9 @@ impl Class {
     pub fn retract_all(conn: &mut Connection, iri: &str, origin: &str) -> Result<()> {
         crate::owl::check_system_locked(conn, iri, None)?;
         let result = query::get_by_entity(conn, iri)?;
-        let triples: Vec<Triple> = result.triples.into_iter()
+        let triples: Vec<Triple> = result
+            .triples
+            .into_iter()
             .map(|t| Triple::new(t.subject, t.predicate, t.object))
             .collect();
         store::retract_triples(conn, &triples, origin)?;

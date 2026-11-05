@@ -1,6 +1,6 @@
 use crate::eavto::Connection;
-use crate::eavto::{store, query, Triple, Object};
-use crate::owl::{Result, OwlError};
+use crate::eavto::{query, store, Object, Triple};
+use crate::owl::{OwlError, Result};
 
 #[cfg(test)]
 #[path = "lock_tests.rs"]
@@ -11,7 +11,13 @@ pub fn is_system_locked(conn: &Connection, iri: &str) -> bool {
     query::get_by_entity_predicate(conn, iri, "foundation:isSystemLocked")
         .ok()
         .and_then(|r| r.triples.into_iter().next())
-        .and_then(|t| if let Object::Boolean(b) = t.object { Some(b) } else { None })
+        .and_then(|t| {
+            if let Object::Boolean(b) = t.object {
+                Some(b)
+            } else {
+                None
+            }
+        })
         .unwrap_or(false)
 }
 
@@ -36,8 +42,16 @@ pub fn check_system_locked(
         return Ok(());
     }
     let result = query::get_by_entity_predicate(conn, iri, "foundation:isSystemLocked")?;
-    let is_locked = result.triples.first()
-        .and_then(|t| if let Object::Boolean(b) = &t.object { Some(*b) } else { None })
+    let is_locked = result
+        .triples
+        .first()
+        .and_then(|t| {
+            if let Object::Boolean(b) = &t.object {
+                Some(*b)
+            } else {
+                None
+            }
+        })
         .unwrap_or(false);
     if is_locked {
         return Err(OwlError::InvalidOperation(format!(

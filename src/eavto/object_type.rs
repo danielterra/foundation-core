@@ -1,7 +1,6 @@
 /// Object Type
 ///
 /// Represents the object part of an RDF triple
-
 use super::xsd_type::XsdType;
 
 /// RDF Object variants
@@ -33,11 +32,11 @@ impl Object {
         match self {
             Object::Iri(_) => "iri",
             Object::Blank(_) => "blank",
-            Object::Literal { .. } |
-            Object::Integer(_) |
-            Object::Number(_) |
-            Object::Boolean(_) |
-            Object::DateTime(_) => "literal",
+            Object::Literal { .. }
+            | Object::Integer(_)
+            | Object::Number(_)
+            | Object::Boolean(_)
+            | Object::DateTime(_) => "literal",
         }
     }
 
@@ -81,7 +80,9 @@ impl Object {
             Object::Number(_) => Some(XsdType::Decimal),
             Object::Boolean(_) => Some(XsdType::Boolean),
             Object::DateTime(_) => Some(XsdType::DateTime),
-            Object::Literal { datatype: Some(dt), .. } => XsdType::from_iri(dt),
+            Object::Literal {
+                datatype: Some(dt), ..
+            } => XsdType::from_iri(dt),
             _ => None,
         }
     }
@@ -96,11 +97,11 @@ impl Object {
     pub fn is_literal(&self) -> bool {
         matches!(
             self,
-            Object::Literal { .. } |
-            Object::Integer(_) |
-            Object::Number(_) |
-            Object::Boolean(_) |
-            Object::DateTime(_)
+            Object::Literal { .. }
+                | Object::Integer(_)
+                | Object::Number(_)
+                | Object::Boolean(_)
+                | Object::DateTime(_)
         )
     }
 }
@@ -111,8 +112,16 @@ impl PartialEq for Object {
             (Object::Iri(a), Object::Iri(b)) => a == b,
             (Object::Blank(a), Object::Blank(b)) => a == b,
             (
-                Object::Literal { value: v1, datatype: d1, language: l1 },
-                Object::Literal { value: v2, datatype: d2, language: l2 }
+                Object::Literal {
+                    value: v1,
+                    datatype: d1,
+                    language: l1,
+                },
+                Object::Literal {
+                    value: v2,
+                    datatype: d2,
+                    language: l2,
+                },
             ) => v1 == v2 && d1 == d2 && l1 == l2,
             (Object::Integer(a), Object::Integer(b)) => a == b,
             (Object::Number(a), Object::Number(b)) => (a - b).abs() < f64::EPSILON,
@@ -186,7 +195,10 @@ mod tests {
         assert_eq!(bool_obj.as_literal(), Some("true".to_string()));
 
         let dt_obj = Object::DateTime("2026-03-08T00:00:00+00:00".to_string());
-        assert_eq!(dt_obj.as_literal(), Some("2026-03-08T00:00:00+00:00".to_string()));
+        assert_eq!(
+            dt_obj.as_literal(),
+            Some("2026-03-08T00:00:00+00:00".to_string())
+        );
 
         let iri_obj = Object::Iri("test".to_string());
         assert_eq!(iri_obj.as_literal(), None);
@@ -255,7 +267,8 @@ mod tests {
             value: "test".to_string(),
             datatype: None,
             language: None,
-        }.is_literal());
+        }
+        .is_literal());
         assert!(Object::Integer(42).is_literal());
         assert!(Object::Number(3.14).is_literal());
         assert!(Object::Boolean(true).is_literal());

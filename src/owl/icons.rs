@@ -1,4 +1,4 @@
-﻿use crate::eavto::Connection;
+use crate::eavto::Connection;
 
 include!(concat!(env!("OUT_DIR"), "/material_symbols.rs"));
 
@@ -40,26 +40,29 @@ pub fn icon_literal_to_display(value: &str) -> String {
 
 pub fn icon_store_value(icon: &str) -> (&'static str, crate::eavto::Object) {
     use crate::eavto::Object;
-    if icon.starts_with("http://")
-        || icon.starts_with("https://")
-        || icon.starts_with("data:")
-    {
-        return ("foundation:hasIcon", Object::Literal {
-            value: icon.to_string(),
-            datatype: Some("xsd:string".to_string()),
-            language: None,
-        });
+    if icon.starts_with("http://") || icon.starts_with("https://") || icon.starts_with("data:") {
+        return (
+            "foundation:hasIcon",
+            Object::Literal {
+                value: icon.to_string(),
+                datatype: Some("xsd:string".to_string()),
+                language: None,
+            },
+        );
     }
     if let Some(path) = icon.strip_prefix("file://") {
         // Convert paths inside foundation_dir to portable form so the same DB
         // can roam between machines (matches the foundation:filePath convention).
         // External `file://` paths are kept absolute.
         let stored = crate::paths::to_portable_path(std::path::Path::new(path));
-        return ("foundation:hasIcon", Object::Literal {
-            value: stored,
-            datatype: Some("xsd:string".to_string()),
-            language: None,
-        });
+        return (
+            "foundation:hasIcon",
+            Object::Literal {
+                value: stored,
+                datatype: Some("xsd:string".to_string()),
+                language: None,
+            },
+        );
     }
     ("foundation:hasIcon", Object::Iri(icon_name_to_iri(icon)))
 }
@@ -123,10 +126,11 @@ pub fn seed_icon_library(conn: &mut Connection) {
     if seeded_version.as_deref() == Some(current_version) {
         // Verify icons are actually present — version marker alone isn't enough
         let sample_iri = icon_name_to_iri("home");
-        let icons_present = crate::owl::get_literal_property(conn, &sample_iri, "foundation:iconKey")
-            .ok()
-            .flatten()
-            .is_some();
+        let icons_present =
+            crate::owl::get_literal_property(conn, &sample_iri, "foundation:iconKey")
+                .ok()
+                .flatten()
+                .is_some();
         if icons_present {
             crate::diagnostics::log_backend(
                 "info",
@@ -179,7 +183,10 @@ mod tests {
     #[test]
     fn test_icon_iri_to_display_unknown_returns_none() {
         let conn = setup_test_db();
-        assert_eq!(icon_iri_to_display(&conn, "foundation:icon-unknown-xyz"), None);
+        assert_eq!(
+            icon_iri_to_display(&conn, "foundation:icon-unknown-xyz"),
+            None
+        );
     }
 
     #[test]
@@ -211,21 +218,27 @@ mod tests {
     fn test_icon_store_value_symbol_name_uses_has_icon_iri() {
         let (pred, obj) = icon_store_value("home");
         assert_eq!(pred, "foundation:hasIcon");
-        assert!(matches!(obj, Object::Iri(iri) if iri == "foundation:icon-material-symbols-name-home"));
+        assert!(
+            matches!(obj, Object::Iri(iri) if iri == "foundation:icon-material-symbols-name-home")
+        );
     }
 
     #[test]
     fn test_icon_store_value_https_url_uses_has_icon_literal() {
         let (pred, obj) = icon_store_value("https://example.com/icon.png");
         assert_eq!(pred, "foundation:hasIcon");
-        assert!(matches!(obj, Object::Literal { ref value, .. } if value == "https://example.com/icon.png"));
+        assert!(
+            matches!(obj, Object::Literal { ref value, .. } if value == "https://example.com/icon.png")
+        );
     }
 
     #[test]
     fn test_icon_store_value_http_url_uses_has_icon_literal() {
         let (pred, obj) = icon_store_value("http://example.com/icon.png");
         assert_eq!(pred, "foundation:hasIcon");
-        assert!(matches!(obj, Object::Literal { ref value, .. } if value == "http://example.com/icon.png"));
+        assert!(
+            matches!(obj, Object::Literal { ref value, .. } if value == "http://example.com/icon.png")
+        );
     }
 
     #[test]
@@ -234,9 +247,14 @@ mod tests {
         assert_eq!(pred, "foundation:hasIcon");
         assert!(matches!(obj, Object::Literal { .. }));
         if let Object::Literal { value, .. } = obj {
-            assert!(!value.starts_with("file://"), "stored value must not carry file:// prefix");
-            assert!(value.contains("path") && value.contains("to") && value.contains("icon.png"),
-                "stored value must contain the path components: got {value}");
+            assert!(
+                !value.starts_with("file://"),
+                "stored value must not carry file:// prefix"
+            );
+            assert!(
+                value.contains("path") && value.contains("to") && value.contains("icon.png"),
+                "stored value must contain the path components: got {value}"
+            );
         }
     }
 
@@ -244,7 +262,9 @@ mod tests {
     fn test_icon_store_value_data_url_uses_has_icon_literal() {
         let (pred, obj) = icon_store_value("data:image/png;base64,abc");
         assert_eq!(pred, "foundation:hasIcon");
-        assert!(matches!(obj, Object::Literal { ref value, .. } if value == "data:image/png;base64,abc"));
+        assert!(
+            matches!(obj, Object::Literal { ref value, .. } if value == "data:image/png;base64,abc")
+        );
     }
 
     // ── seed_icon_library ────────────────────────────────────────────────────────
@@ -295,9 +315,9 @@ mod tests {
         seed_icon_library(&mut conn);
 
         let home_iri = icon_name_to_iri("home");
-        let result = crate::eavto::query::get_by_entity_predicate(
-            &conn, &home_iri, "foundation:hasIcon"
-        ).unwrap();
+        let result =
+            crate::eavto::query::get_by_entity_predicate(&conn, &home_iri, "foundation:hasIcon")
+                .unwrap();
         assert_eq!(result.triples.len(), 1);
         assert!(matches!(&result.triples[0].object, Object::Iri(iri) if iri == &home_iri));
     }
@@ -373,17 +393,22 @@ mod tests {
     #[test]
     fn test_icon_literal_to_display_relative_path_gets_file_prefix() {
         let result = icon_literal_to_display("attachments/photo.jpg");
-        assert!(result.starts_with("file://"),
-            "relative path must be prefixed with file://; got: {}", result);
-        assert!(result.ends_with("photo.jpg"),
-            "relative path must preserve filename; got: {}", result);
+        assert!(
+            result.starts_with("file://"),
+            "relative path must be prefixed with file://; got: {}",
+            result
+        );
+        assert!(
+            result.ends_with("photo.jpg"),
+            "relative path must preserve filename; got: {}",
+            result
+        );
     }
-
 }
 
 fn seed_icons_batch(conn: &mut Connection, version: &str) {
     use crate::eavto::store::{assert_triples, enter_batch_transaction};
-    use crate::eavto::{Triple, Object};
+    use crate::eavto::{Object, Triple};
 
     let _guard = enter_batch_transaction();
 
@@ -402,7 +427,11 @@ fn seed_icons_batch(conn: &mut Connection, version: &str) {
 
     for name in MATERIAL_SYMBOLS {
         let iri = icon_name_to_iri(name);
-        all_triples.push(Triple::new(&iri, "rdf:type", Object::Iri("foundation:Icon".to_string())));
+        all_triples.push(Triple::new(
+            &iri,
+            "rdf:type",
+            Object::Iri("foundation:Icon".to_string()),
+        ));
         all_triples.push(Triple::new(
             &iri,
             "rdfs:label",
@@ -436,12 +465,13 @@ fn seed_icons_batch(conn: &mut Connection, version: &str) {
     match assert_triples(conn, &all_triples, "system") {
         Ok(_) => crate::diagnostics::log_backend(
             "info",
-            &format!("Seeded {} Material Symbols icons successfully.", MATERIAL_SYMBOLS.len()),
+            &format!(
+                "Seeded {} Material Symbols icons successfully.",
+                MATERIAL_SYMBOLS.len()
+            ),
         ),
-        Err(e) => crate::diagnostics::log_backend(
-            "error",
-            &format!("Failed to seed icon library: {e}"),
-        ),
+        Err(e) => {
+            crate::diagnostics::log_backend("error", &format!("Failed to seed icon library: {e}"))
+        }
     }
 }
-

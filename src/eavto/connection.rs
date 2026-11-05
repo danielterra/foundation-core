@@ -1,9 +1,9 @@
-use rusqlite::{Connection, Result};
-use std::path::{Path, PathBuf};
-use std::fs;
-use std::fmt;
-use std::error::Error;
 use crate::diagnostics::log_backend;
+use rusqlite::{Connection, Result};
+use std::error::Error;
+use std::fmt;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 const DB_BUSY_TIMEOUT_SECS: u64 = 30;
 
@@ -52,17 +52,22 @@ impl From<std::io::Error> for DbError {
 
 pub fn get_db_path() -> Result<PathBuf, DbError> {
     let foundation_dir = dirs::document_dir()
-        .ok_or_else(|| DbError::IoError(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Could not determine Documents directory"
-        )))?
+        .ok_or_else(|| {
+            DbError::IoError(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Could not determine Documents directory",
+            ))
+        })?
         .join(crate::paths::app_dir_name());
     get_db_path_for_dir(&foundation_dir)
 }
 
 pub fn get_db_path_for_dir(foundation_dir: &std::path::Path) -> Result<PathBuf, DbError> {
     if !foundation_dir.exists() {
-        log_backend("info", &format!("Creating Foundation directory: {:?}", foundation_dir));
+        log_backend(
+            "info",
+            &format!("Creating Foundation directory: {:?}", foundation_dir),
+        );
         fs::create_dir_all(foundation_dir)?;
     }
     let db_path = foundation_dir.join(crate::paths::db_filename());
@@ -99,17 +104,29 @@ fn spawn_background_search_init(db_path: &Path, t_startup: std::time::Instant) {
         .map(|p| p.join(crate::paths::app_namespace()).join("search"))
         .unwrap_or_else(|| std::path::PathBuf::from("search"));
     if let Err(e) = std::fs::create_dir_all(&search_dir) {
-        log_backend("warn", &format!("[SEARCH] Failed to create app-data search dir {:?}: {}", search_dir, e));
+        log_backend(
+            "warn",
+            &format!(
+                "[SEARCH] Failed to create app-data search dir {:?}: {}",
+                search_dir, e
+            ),
+        );
     }
 
     if let Some(legacy_dir) = db_path.parent().map(|p| p.join("search")) {
         if legacy_dir.exists() && legacy_dir != search_dir {
-            log_backend("info", &format!(
-                "[SEARCH] Removing legacy index next to DB: {:?} (will rebuild in app-data)",
-                legacy_dir,
-            ));
+            log_backend(
+                "info",
+                &format!(
+                    "[SEARCH] Removing legacy index next to DB: {:?} (will rebuild in app-data)",
+                    legacy_dir,
+                ),
+            );
             if let Err(e) = std::fs::remove_dir_all(&legacy_dir) {
-                log_backend("warn", &format!("[SEARCH] Could not remove legacy index: {}", e));
+                log_backend(
+                    "warn",
+                    &format!("[SEARCH] Could not remove legacy index: {}", e),
+                );
             }
         }
     }
@@ -121,14 +138,26 @@ fn spawn_background_search_init(db_path: &Path, t_startup: std::time::Instant) {
         match Connection::open(&search_db_path) {
             Ok(bg_conn) => {
                 crate::search::init(&search_dir, &bg_conn);
-                log_backend("info", &format!("[SEARCH] Background init complete in {}ms", t.elapsed().as_millis()));
+                log_backend(
+                    "info",
+                    &format!(
+                        "[SEARCH] Background init complete in {}ms",
+                        t.elapsed().as_millis()
+                    ),
+                );
             }
             Err(e) => {
                 log_backend("error", &format!("[SEARCH] Background init failed: {}", e));
             }
         }
     });
-    log_backend("info", &format!("[STARTUP] search_init=spawned ({}ms)", t_startup.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!(
+            "[STARTUP] search_init=spawned ({}ms)",
+            t_startup.elapsed().as_millis()
+        ),
+    );
 }
 
 /// The global Tantivy index is a process-wide singleton; letting each unit test's
@@ -146,21 +175,29 @@ pub fn initialize_db(db_path: &Path) -> Result<Connection, DbError> {
     initialize_db_with_emit(db_path, None::<fn(&str, serde_json::Value)>)
 }
 
-pub fn initialize_db_with_emit<F>(
-    db_path: &Path,
-    emit_fn: Option<F>,
-) -> Result<Connection, DbError>
+pub fn initialize_db_with_emit<F>(db_path: &Path, emit_fn: Option<F>) -> Result<Connection, DbError>
 where
     F: Fn(&str, serde_json::Value),
 {
     log_backend("info", &format!("Using database: {:?}", db_path));
     let conn = Connection::open(db_path)?;
-    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA journal_size_limit=33554432;")?;
-    conn.busy_timeout(std::time::Duration::from_secs(DB_BUSY_TIMEOUT_SECS)).map_err(|e| DbError::ConnectionError(e))?;
+    conn.execute_batch(
+        "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA journal_size_limit=33554432;",
+    )?;
+    conn.busy_timeout(std::time::Duration::from_secs(DB_BUSY_TIMEOUT_SECS))
+        .map_err(|e| DbError::ConnectionError(e))?;
 
-    if let Ok(busy) = conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |r| r.get::<_, i64>(0)) {
+    if let Ok(busy) = conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |r| {
+        r.get::<_, i64>(0)
+    }) {
         if busy > 0 {
-            log_backend("warn", &format!("[STARTUP] WAL checkpoint: {} busy readers, WAL not fully truncated", busy));
+            log_backend(
+                "warn",
+                &format!(
+                    "[STARTUP] WAL checkpoint: {} busy readers, WAL not fully truncated",
+                    busy
+                ),
+            );
         } else {
             log_backend("info", "[STARTUP] WAL truncated");
         }
@@ -195,9 +232,17 @@ where
 
     run_migrations(&conn)?;
     ensure_query_stats(&conn);
-    log_backend("info", &format!("[STARTUP] migrations={}ms", t_startup.elapsed().as_millis()));
+    log_backend(
+        "info",
+        &format!("[STARTUP] migrations={}ms", t_startup.elapsed().as_millis()),
+    );
 
-    run_vacuum_once(&conn, emit_fn.as_ref().map(|f| f as &dyn Fn(&str, serde_json::Value)));
+    run_vacuum_once(
+        &conn,
+        emit_fn
+            .as_ref()
+            .map(|f| f as &dyn Fn(&str, serde_json::Value)),
+    );
 
     spawn_background_search_init(db_path, t_startup);
 
@@ -209,35 +254,53 @@ where
 }
 
 fn ensure_query_stats(conn: &Connection) {
-    let has_stats = conn.query_row(
-        "SELECT COUNT(*) FROM sqlite_stat1 WHERE tbl = 'triples'",
-        [],
-        |row| row.get::<_, i64>(0),
-    ).map(|c| c > 0).unwrap_or(false);
+    let has_stats = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_stat1 WHERE tbl = 'triples'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|c| c > 0)
+        .unwrap_or(false);
 
     if !has_stats {
         let t = std::time::Instant::now();
-        log_backend("info", "[STARTUP] sqlite_stat1 absent — running ANALYZE triples");
+        log_backend(
+            "info",
+            "[STARTUP] sqlite_stat1 absent — running ANALYZE triples",
+        );
         if let Err(e) = conn.execute_batch("ANALYZE triples;") {
             log_backend("warn", &format!("[STARTUP] ANALYZE failed: {}", e));
         } else {
-            log_backend("info", &format!("[STARTUP] ANALYZE complete in {}ms", t.elapsed().as_millis()));
+            log_backend(
+                "info",
+                &format!(
+                    "[STARTUP] ANALYZE complete in {}ms",
+                    t.elapsed().as_millis()
+                ),
+            );
         }
     }
 }
 
 fn drop_object_datetime_if_exists(conn: &Connection) -> Result<(), DbError> {
-    let col_exists: bool = conn.query_row(
-        "SELECT COUNT(*) FROM pragma_table_info('triples') WHERE name = 'object_datetime'",
-        [],
-        |row| row.get::<_, i64>(0),
-    ).map(|c| c > 0).unwrap_or(false);
+    let col_exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('triples') WHERE name = 'object_datetime'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|c| c > 0)
+        .unwrap_or(false);
 
     if !col_exists {
         return Ok(());
     }
 
-    log_backend("info", "Migrating: dropping object_datetime column from triples table");
+    log_backend(
+        "info",
+        "Migrating: dropping object_datetime column from triples table",
+    );
 
     conn.execute_batch("PRAGMA foreign_keys = OFF")?;
     conn.execute_batch("
@@ -309,20 +372,27 @@ fn drop_object_datetime_if_exists(conn: &Connection) -> Result<(), DbError> {
 
 /// One-shot migration: adds the `is_current` column and backfills it.
 pub(crate) fn migrate_is_current(conn: &Connection) -> Result<(), DbError> {
-    let col_exists: bool = conn.query_row(
-        "SELECT COUNT(*) FROM pragma_table_info('triples') WHERE name = 'is_current'",
-        [],
-        |row| row.get::<_, i64>(0),
-    ).map(|c| c > 0).unwrap_or(false);
+    let col_exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('triples') WHERE name = 'is_current'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|c| c > 0)
+        .unwrap_or(false);
 
     if col_exists {
         return Ok(());
     }
 
     let t = std::time::Instant::now();
-    log_backend("info", "[STARTUP] is_current migration: adding column and backfilling");
+    log_backend(
+        "info",
+        "[STARTUP] is_current migration: adding column and backfilling",
+    );
 
-    conn.execute_batch("
+    conn.execute_batch(
+        "
         BEGIN;
         ALTER TABLE triples ADD COLUMN is_current INTEGER NOT NULL DEFAULT 1;
         UPDATE triples SET is_current = 0
@@ -337,27 +407,39 @@ pub(crate) fn migrate_is_current(conn: &Connection) -> Result<(), DbError> {
             WHERE t.tx < m.max_tx
         );
         COMMIT;
-    ")?;
+    ",
+    )?;
 
-    let demoted: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM triples WHERE is_current = 0",
-        [],
-        |row| row.get(0),
-    ).unwrap_or(0);
-    log_backend("info", &format!(
-        "[STARTUP] is_current migration: {} rows demoted in {}ms",
-        demoted,
-        t.elapsed().as_millis(),
-    ));
+    let demoted: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM triples WHERE is_current = 0",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    log_backend(
+        "info",
+        &format!(
+            "[STARTUP] is_current migration: {} rows demoted in {}ms",
+            demoted,
+            t.elapsed().as_millis(),
+        ),
+    );
 
     let t_analyze = std::time::Instant::now();
     if let Err(e) = conn.execute_batch("ANALYZE triples;") {
-        log_backend("warn", &format!("[STARTUP] is_current migration ANALYZE failed: {}", e));
+        log_backend(
+            "warn",
+            &format!("[STARTUP] is_current migration ANALYZE failed: {}", e),
+        );
     } else {
-        log_backend("info", &format!(
-            "[STARTUP] is_current migration ANALYZE complete in {}ms",
-            t_analyze.elapsed().as_millis(),
-        ));
+        log_backend(
+            "info",
+            &format!(
+                "[STARTUP] is_current migration ANALYZE complete in {}ms",
+                t_analyze.elapsed().as_millis(),
+            ),
+        );
     }
 
     Ok(())
@@ -369,28 +451,43 @@ fn run_vacuum_once(conn: &Connection, emit_fn: Option<&dyn Fn(&str, serde_json::
         .unwrap_or(0);
 
     if user_version >= USER_VERSION_VACUUM_DONE {
-        log_backend("debug", "[STARTUP] VACUUM already done (user_version >= 1), skipping");
+        log_backend(
+            "debug",
+            "[STARTUP] VACUUM already done (user_version >= 1), skipping",
+        );
         return;
     }
 
-    let pages_before: i64 = conn.query_row("PRAGMA page_count", [], |r| r.get(0)).unwrap_or(0);
-    let page_size: i64 = conn.query_row("PRAGMA page_size", [], |r| r.get(0)).unwrap_or(4096);
+    let pages_before: i64 = conn
+        .query_row("PRAGMA page_count", [], |r| r.get(0))
+        .unwrap_or(0);
+    let page_size: i64 = conn
+        .query_row("PRAGMA page_size", [], |r| r.get(0))
+        .unwrap_or(4096);
     let bytes_before = pages_before * page_size;
 
     if let Some(f) = emit_fn {
-        f("import-progress", serde_json::json!({ "stage": "Compacting database" }));
+        f(
+            "import-progress",
+            serde_json::json!({ "stage": "Compacting database" }),
+        );
     }
 
-    log_backend("info", &format!(
-        "[STARTUP] VACUUM starting — DB size before: {:.1} MB",
-        bytes_before as f64 / 1_048_576.0,
-    ));
+    log_backend(
+        "info",
+        &format!(
+            "[STARTUP] VACUUM starting — DB size before: {:.1} MB",
+            bytes_before as f64 / 1_048_576.0,
+        ),
+    );
 
     let t = std::time::Instant::now();
     match conn.execute_batch("VACUUM") {
         Ok(()) => {
             let elapsed = t.elapsed().as_millis();
-            let pages_after: i64 = conn.query_row("PRAGMA page_count", [], |r| r.get(0)).unwrap_or(0);
+            let pages_after: i64 = conn
+                .query_row("PRAGMA page_count", [], |r| r.get(0))
+                .unwrap_or(0);
             let bytes_after = pages_after * page_size;
             log_backend("info", &format!(
                 "[STARTUP] VACUUM complete in {}ms — before: {:.1} MB, after: {:.1} MB, freed: {:.1} MB",
@@ -401,18 +498,27 @@ fn run_vacuum_once(conn: &Connection, emit_fn: Option<&dyn Fn(&str, serde_json::
             ));
 
             if let Err(e) = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)") {
-                log_backend("warn", &format!("[STARTUP] WAL checkpoint after VACUUM failed: {}", e));
+                log_backend(
+                    "warn",
+                    &format!("[STARTUP] WAL checkpoint after VACUUM failed: {}", e),
+                );
             }
 
-            if let Err(e) = conn.execute_batch(&format!("PRAGMA user_version = {}", USER_VERSION_VACUUM_DONE)) {
-                log_backend("warn", &format!("[STARTUP] Failed to set user_version after VACUUM: {}", e));
+            if let Err(e) = conn.execute_batch(&format!(
+                "PRAGMA user_version = {}",
+                USER_VERSION_VACUUM_DONE
+            )) {
+                log_backend(
+                    "warn",
+                    &format!("[STARTUP] Failed to set user_version after VACUUM: {}", e),
+                );
             }
         }
         Err(e) => {
-            log_backend("warn", &format!(
-                "[STARTUP] VACUUM failed (will retry next boot): {}",
-                e,
-            ));
+            log_backend(
+                "warn",
+                &format!("[STARTUP] VACUUM failed (will retry next boot): {}", e,),
+            );
         }
     }
 }
@@ -420,40 +526,8 @@ fn run_vacuum_once(conn: &Connection, emit_fn: Option<&dyn Fn(&str, serde_json::
 fn run_migrations(conn: &Connection) -> Result<(), DbError> {
     drop_object_datetime_if_exists(conn)?;
     migrate_is_current(conn)?;
-    conn.execute_batch("
-        CREATE TABLE IF NOT EXISTS formula_recalc_jobs (
-            id              TEXT    PRIMARY KEY,
-            property_iri    TEXT    NOT NULL,
-            property_label  TEXT,
-            class_iri       TEXT    NOT NULL,
-            class_label     TEXT,
-            status          TEXT    NOT NULL DEFAULT 'pending',
-            total           INTEGER NOT NULL DEFAULT 0,
-            processed       INTEGER NOT NULL DEFAULT 0,
-            last_offset     INTEGER NOT NULL DEFAULT 0,
-            error_message   TEXT,
-            created_at      INTEGER NOT NULL,
-            updated_at      INTEGER NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS formula_instance_errors (
-            instance_iri    TEXT NOT NULL,
-            property_iri    TEXT NOT NULL,
-            error_message   TEXT NOT NULL,
-            created_at      INTEGER NOT NULL,
-            PRIMARY KEY (instance_iri, property_iri)
-        );
-    ")?;
-
-    let has_instance_iri: bool = conn.query_row(
-        "SELECT COUNT(*) FROM pragma_table_info('formula_recalc_jobs') WHERE name = 'instance_iri'",
-        [],
-        |row| row.get::<_, i64>(0),
-    ).unwrap_or(0) > 0;
-    if !has_instance_iri {
-        conn.execute_batch("ALTER TABLE formula_recalc_jobs ADD COLUMN instance_iri TEXT")?;
-    }
-
-    conn.execute_batch("
+    conn.execute_batch(
+        "
         DROP VIEW IF EXISTS triples_current;
         DROP VIEW IF EXISTS entities;
         DROP VIEW IF EXISTS ontology_classes;
@@ -494,23 +568,30 @@ fn run_migrations(conn: &Connection) -> Result<(), DbError> {
         WHERE predicate = 'rdf:type'
           AND object IN ('owl:ObjectProperty', 'owl:DatatypeProperty',
                          'owl:AnnotationProperty', 'rdf:Property');
-    ")?;
+    ",
+    )?;
 
-    conn.execute_batch("
+    conn.execute_batch(
+        "
         CREATE INDEX IF NOT EXISTS idx_cur_spo ON triples(subject, predicate)
             WHERE is_current = 1 AND retracted = 0;
         CREATE INDEX IF NOT EXISTS idx_cur_pos ON triples(predicate, object, object_value)
             WHERE is_current = 1 AND retracted = 0;
-    ")?;
+    ",
+    )?;
 
-    conn.execute_batch("
+    conn.execute_batch(
+        "
         CREATE INDEX IF NOT EXISTS idx_backlinks_active ON triples(object, subject, predicate, tx)
         WHERE retracted = 0 AND object_type = 'iri' AND predicate != 'rdf:type';
-    ")?;
+    ",
+    )?;
 
-    conn.execute_batch("
+    conn.execute_batch(
+        "
         CREATE INDEX IF NOT EXISTS idx_spr ON triples(subject, predicate, retracted, tx);
-    ")?;
+    ",
+    )?;
 
     crate::search::ensure_access_table(conn).map_err(DbError::ConnectionError)?;
 
@@ -533,7 +614,7 @@ mod tests {
         let db_err: DbError = rusqlite_err.into();
 
         match db_err {
-            DbError::ConnectionError(_) => {},
+            DbError::ConnectionError(_) => {}
             _ => panic!("Expected ConnectionError"),
         }
     }
@@ -544,7 +625,7 @@ mod tests {
         let db_err: DbError = io_err.into();
 
         match db_err {
-            DbError::IoError(_) => {},
+            DbError::IoError(_) => {}
             _ => panic!("Expected IoError"),
         }
     }
@@ -556,11 +637,13 @@ mod tests {
 
         assert!(result.is_ok());
 
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table'",
-            [],
-            |row| row.get(0)
-        ).expect("Failed to query tables");
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to query tables");
 
         assert!(count > 0, "Schema should create tables");
     }
@@ -574,15 +657,21 @@ mod tests {
 
         let result = initialize_db(&db_path);
 
-        assert!(result.is_ok(), "Database initialization should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Database initialization should succeed: {:?}",
+            result.err()
+        );
         assert!(db_path.exists(), "Database file should be created");
 
         let conn = Connection::open(&db_path).expect("Should open created database");
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table'",
-            [],
-            |row| row.get(0)
-        ).expect("Failed to query tables");
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to query tables");
 
         assert!(count > 0, "Initialized database should have tables");
     }
@@ -594,7 +683,8 @@ mod tests {
 
         {
             let conn = Connection::open(&db_path).expect("Failed to create initial db");
-            conn.execute_batch(SCHEMA_SQL).expect("Failed to create schema");
+            conn.execute_batch(SCHEMA_SQL)
+                .expect("Failed to create schema");
         }
 
         assert!(db_path.exists(), "Database should exist");

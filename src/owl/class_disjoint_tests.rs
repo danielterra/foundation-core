@@ -2,7 +2,9 @@ use super::*;
 use crate::eavto::test_helpers::setup_test_db;
 
 fn mk_class(conn: &mut Connection, iri: &str) {
-    Class::new(iri).assert(conn, ClassType::OwlClass, iri, "test-icon", None, "test").unwrap();
+    Class::new(iri)
+        .assert(conn, ClassType::OwlClass, iri, "test-icon", None, "test")
+        .unwrap();
 }
 
 // ── set_disjoint_with ──────────────────────────────────────────────────────────
@@ -18,7 +20,10 @@ fn test_set_disjoint_with_happy_path() {
     let fwd = Class::get_direct_disjoint_pair_iris(&conn, "test:Cat").unwrap();
     assert!(fwd.contains(&"test:Dog".to_string()));
     let rev = Class::get_direct_disjoint_pair_iris(&conn, "test:Dog").unwrap();
-    assert!(rev.contains(&"test:Cat".to_string()), "symmetric triple must be asserted");
+    assert!(
+        rev.contains(&"test:Cat".to_string()),
+        "symmetric triple must be asserted"
+    );
 }
 
 #[test]
@@ -49,7 +54,10 @@ fn test_set_disjoint_with_empty_list_clears_existing() {
     Class::set_disjoint_with(&mut conn, "test:Cat", &[], "test").unwrap();
 
     let fwd = Class::get_direct_disjoint_pair_iris(&conn, "test:Cat").unwrap();
-    assert!(fwd.is_empty(), "passing [] must clear all pairwise disjointness");
+    assert!(
+        fwd.is_empty(),
+        "passing [] must clear all pairwise disjointness"
+    );
 }
 
 #[test]
@@ -62,8 +70,14 @@ fn test_set_disjoint_with_replaces_old_set() {
     Class::set_disjoint_with(&mut conn, "test:A", &["test:C"], "test").unwrap();
 
     let fwd = Class::get_direct_disjoint_pair_iris(&conn, "test:A").unwrap();
-    assert!(!fwd.contains(&"test:B".to_string()), "old disjoint must be cleared");
-    assert!(fwd.contains(&"test:C".to_string()), "new disjoint must be set");
+    assert!(
+        !fwd.contains(&"test:B".to_string()),
+        "old disjoint must be cleared"
+    );
+    assert!(
+        fwd.contains(&"test:C".to_string()),
+        "new disjoint must be set"
+    );
 }
 
 // ── add_disjoint_with ─────────────────────────────────────────────────────────
@@ -127,7 +141,10 @@ fn test_remove_disjoint_with_noop_when_not_set() {
     mk_class(&mut conn, "test:Dog");
 
     let result = Class::remove_disjoint_with(&mut conn, "test:Cat", "test:Dog", "test");
-    assert!(result.is_ok(), "removing non-existent disjointness must not error");
+    assert!(
+        result.is_ok(),
+        "removing non-existent disjointness must not error"
+    );
 }
 
 // ── assert_all_disjoint_classes ───────────────────────────────────────────────
@@ -140,10 +157,16 @@ fn test_assert_all_disjoint_classes_happy_path() {
     mk_class(&mut conn, "test:Fish");
 
     let adc_iri = Class::assert_all_disjoint_classes(
-        &mut conn, &["test:Cat", "test:Dog", "test:Fish"], "test",
-    ).unwrap();
+        &mut conn,
+        &["test:Cat", "test:Dog", "test:Fish"],
+        "test",
+    )
+    .unwrap();
 
-    assert!(adc_iri.starts_with("_:adc_"), "adc iri must be a blank node");
+    assert!(
+        adc_iri.starts_with("_:adc_"),
+        "adc iri must be a blank node"
+    );
     let members = Class::get_all_disjoint_classes_members(&conn, &adc_iri).unwrap();
     assert_eq!(members.len(), 3);
     assert!(members.contains(&"test:Cat".to_string()));
@@ -167,7 +190,9 @@ fn test_assert_all_disjoint_classes_rejects_duplicate_members() {
     mk_class(&mut conn, "test:Dog");
 
     let err = Class::assert_all_disjoint_classes(
-        &mut conn, &["test:Cat", "test:Dog", "test:Cat"], "test",
+        &mut conn,
+        &["test:Cat", "test:Dog", "test:Cat"],
+        "test",
     );
     assert!(err.is_err(), "duplicate members must be rejected");
 }
@@ -178,12 +203,10 @@ fn test_assert_all_disjoint_classes_is_idempotent() {
     mk_class(&mut conn, "test:Cat");
     mk_class(&mut conn, "test:Dog");
 
-    let iri1 = Class::assert_all_disjoint_classes(
-        &mut conn, &["test:Cat", "test:Dog"], "test",
-    ).unwrap();
-    let iri2 = Class::assert_all_disjoint_classes(
-        &mut conn, &["test:Cat", "test:Dog"], "test",
-    ).unwrap();
+    let iri1 =
+        Class::assert_all_disjoint_classes(&mut conn, &["test:Cat", "test:Dog"], "test").unwrap();
+    let iri2 =
+        Class::assert_all_disjoint_classes(&mut conn, &["test:Cat", "test:Dog"], "test").unwrap();
     assert_eq!(iri1, iri2, "same member set must produce same blank IRI");
 }
 
@@ -192,9 +215,7 @@ fn test_assert_all_disjoint_classes_rejects_nonexistent_member() {
     let mut conn = setup_test_db();
     mk_class(&mut conn, "test:Cat");
 
-    let err = Class::assert_all_disjoint_classes(
-        &mut conn, &["test:Cat", "test:Ghost"], "test",
-    );
+    let err = Class::assert_all_disjoint_classes(&mut conn, &["test:Cat", "test:Ghost"], "test");
     assert!(err.is_err(), "non-existent class member must be rejected");
 }
 
@@ -206,14 +227,16 @@ fn test_retract_all_disjoint_classes_removes_node() {
     mk_class(&mut conn, "test:Cat");
     mk_class(&mut conn, "test:Dog");
 
-    let adc_iri = Class::assert_all_disjoint_classes(
-        &mut conn, &["test:Cat", "test:Dog"], "test",
-    ).unwrap();
+    let adc_iri =
+        Class::assert_all_disjoint_classes(&mut conn, &["test:Cat", "test:Dog"], "test").unwrap();
 
     Class::retract_all_disjoint_classes(&mut conn, &adc_iri, "test").unwrap();
 
     let members = Class::get_all_disjoint_classes_members(&conn, &adc_iri).unwrap();
-    assert!(members.is_empty(), "after retraction ADC node must have no members");
+    assert!(
+        members.is_empty(),
+        "after retraction ADC node must have no members"
+    );
 }
 
 #[test]
@@ -222,15 +245,16 @@ fn test_retract_then_reassert_all_disjoint_classes() {
     mk_class(&mut conn, "test:Cat");
     mk_class(&mut conn, "test:Dog");
 
-    let adc_iri = Class::assert_all_disjoint_classes(
-        &mut conn, &["test:Cat", "test:Dog"], "test",
-    ).unwrap();
+    let adc_iri =
+        Class::assert_all_disjoint_classes(&mut conn, &["test:Cat", "test:Dog"], "test").unwrap();
     Class::retract_all_disjoint_classes(&mut conn, &adc_iri, "test").unwrap();
 
-    let adc2 = Class::assert_all_disjoint_classes(
-        &mut conn, &["test:Cat", "test:Dog"], "test",
-    ).unwrap();
-    assert_eq!(adc_iri, adc2, "deterministic IRI must be stable across retract+reassert");
+    let adc2 =
+        Class::assert_all_disjoint_classes(&mut conn, &["test:Cat", "test:Dog"], "test").unwrap();
+    assert_eq!(
+        adc_iri, adc2,
+        "deterministic IRI must be stable across retract+reassert"
+    );
     let members = Class::get_all_disjoint_classes_members(&conn, &adc2).unwrap();
     assert_eq!(members.len(), 2, "after re-assert members must be restored");
 }
@@ -312,10 +336,23 @@ fn test_validate_super_classes_not_disjoint_single_parent_passes() {
 fn test_has_property_true_when_declared() {
     let mut conn = setup_test_db();
     mk_class(&mut conn, "test:Task");
-    store::assert_triples(&mut conn, &[
-        Triple::new("test:title", rdf::TYPE, Object::Iri(owl::DATATYPE_PROPERTY.to_string())),
-        Triple::new("test:title", "rdfs:domain", Object::Iri("test:Task".to_string())),
-    ], "test").unwrap();
+    store::assert_triples(
+        &mut conn,
+        &[
+            Triple::new(
+                "test:title",
+                rdf::TYPE,
+                Object::Iri(owl::DATATYPE_PROPERTY.to_string()),
+            ),
+            Triple::new(
+                "test:title",
+                "rdfs:domain",
+                Object::Iri("test:Task".to_string()),
+            ),
+        ],
+        "test",
+    )
+    .unwrap();
 
     assert!(Class::has_property(&conn, "test:Task", "test:title"));
 }
@@ -334,10 +371,23 @@ fn test_has_property_true_when_inherited() {
     mk_class(&mut conn, "test:Base");
     mk_class(&mut conn, "test:Child");
     Class::set_super_class(&mut conn, "test:Child", "test:Base", "test").unwrap();
-    store::assert_triples(&mut conn, &[
-        Triple::new("test:baseProp", rdf::TYPE, Object::Iri(owl::DATATYPE_PROPERTY.to_string())),
-        Triple::new("test:baseProp", "rdfs:domain", Object::Iri("test:Base".to_string())),
-    ], "test").unwrap();
+    store::assert_triples(
+        &mut conn,
+        &[
+            Triple::new(
+                "test:baseProp",
+                rdf::TYPE,
+                Object::Iri(owl::DATATYPE_PROPERTY.to_string()),
+            ),
+            Triple::new(
+                "test:baseProp",
+                "rdfs:domain",
+                Object::Iri("test:Base".to_string()),
+            ),
+        ],
+        "test",
+    )
+    .unwrap();
 
     assert!(
         Class::has_property(&conn, "test:Child", "test:baseProp"),
@@ -353,7 +403,10 @@ fn test_get_ancestor_iris_includes_self() {
     mk_class(&mut conn, "test:Leaf");
 
     let ancestors = Class::get_ancestor_iris(&conn, "test:Leaf").unwrap();
-    assert!(ancestors.contains(&"test:Leaf".to_string()), "must include the class itself");
+    assert!(
+        ancestors.contains(&"test:Leaf".to_string()),
+        "must include the class itself"
+    );
 }
 
 #[test]

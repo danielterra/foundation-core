@@ -7,14 +7,17 @@ fn generate_material_symbols_list() {
     use std::path::PathBuf;
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let asset_path = manifest_dir.join("assets").join("material_symbols_names.txt");
+    let asset_path = manifest_dir
+        .join("assets")
+        .join("material_symbols_names.txt");
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let out_path = PathBuf::from(&out_dir).join("material_symbols.rs");
 
     println!("cargo:rerun-if-changed={}", asset_path.display());
 
-    let content = std::fs::read_to_string(&asset_path)
-        .expect("assets/material_symbols_names.txt not found — run scripts/update_material_symbols");
+    let content = std::fs::read_to_string(&asset_path).expect(
+        "assets/material_symbols_names.txt not found — run scripts/update_material_symbols",
+    );
 
     let version = content
         .lines()
@@ -31,7 +34,11 @@ fn generate_material_symbols_list() {
     names.sort_unstable();
 
     let mut buf = String::new();
-    writeln!(buf, "pub static MATERIAL_SYMBOLS_VERSION: &str = \"{version}\";").unwrap();
+    writeln!(
+        buf,
+        "pub static MATERIAL_SYMBOLS_VERSION: &str = \"{version}\";"
+    )
+    .unwrap();
     writeln!(buf, "pub static MATERIAL_SYMBOLS: &[&str] = &[").unwrap();
     for name in &names {
         writeln!(buf, "    \"{name}\",").unwrap();

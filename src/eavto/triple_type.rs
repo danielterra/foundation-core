@@ -1,7 +1,6 @@
 /// Triple Type
 ///
 /// Represents a single RDF triple with EVTO metadata
-
 use super::object_type::Object;
 
 /// A single RDF triple with EVTO metadata
@@ -29,11 +28,7 @@ pub struct Triple {
 
 impl Triple {
     /// Create a new Triple
-    pub fn new(
-        subject: impl Into<String>,
-        predicate: impl Into<String>,
-        object: Object,
-    ) -> Self {
+    pub fn new(subject: impl Into<String>, predicate: impl Into<String>, object: Object) -> Self {
         Self {
             subject: subject.into(),
             predicate: predicate.into(),
@@ -74,11 +69,7 @@ mod tests {
 
     #[test]
     fn test_triple_is_active() {
-        let mut triple = Triple::new(
-            "test:Subject",
-            "test:predicate",
-            Object::Integer(42),
-        );
+        let mut triple = Triple::new("test:Subject", "test:predicate", Object::Integer(42));
 
         assert!(triple.is_active());
 

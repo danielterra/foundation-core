@@ -1,7 +1,6 @@
-
-use crate::eavto::Connection;
 use crate::eavto::query;
-use crate::owl::{Result, OwlError, vocabulary::owl};
+use crate::eavto::Connection;
+use crate::owl::{vocabulary::owl, OwlError, Result};
 
 /// Cardinality restriction for a property on a class
 #[derive(Debug, Clone)]
@@ -77,7 +76,10 @@ impl CardinalityRestriction {
             }
         }
 
-        format!("Property '{}' cardinality constraint violated", property_name)
+        format!(
+            "Property '{}' cardinality constraint violated",
+            property_name
+        )
     }
 }
 
@@ -123,27 +125,28 @@ fn get_class_cardinality_restrictions_inner(
     let mut restrictions = Vec::new();
     let mut seen_properties = std::collections::HashSet::new();
 
-    let subclass_result =
-        query::get_by_entity_predicate(conn, class_iri, "rdfs:subClassOf")?;
+    let subclass_result = query::get_by_entity_predicate(conn, class_iri, "rdfs:subClassOf")?;
 
     let mut parent_iris = Vec::new();
 
     for triple in &subclass_result.triples {
         if let Some(node) = triple.object.as_iri() {
             if node.starts_with("_:") {
-                let type_result =
-                    query::get_by_entity_predicate(conn, node, "rdf:type")?;
+                let type_result = query::get_by_entity_predicate(conn, node, "rdf:type")?;
                 let is_restriction = type_result.triples.iter().any(|t| {
-                    t.object.as_iri().map(|iri| iri == owl::RESTRICTION).unwrap_or(false)
+                    t.object
+                        .as_iri()
+                        .map(|iri| iri == owl::RESTRICTION)
+                        .unwrap_or(false)
                 });
 
                 if !is_restriction {
                     continue;
                 }
 
-                let prop_result =
-                    query::get_by_entity_predicate(conn, node, owl::ON_PROPERTY)?;
-                let property_iri = match prop_result.triples.first().and_then(|t| t.object.as_iri()) {
+                let prop_result = query::get_by_entity_predicate(conn, node, owl::ON_PROPERTY)?;
+                let property_iri = match prop_result.triples.first().and_then(|t| t.object.as_iri())
+                {
                     Some(iri) => iri.to_string(),
                     None => continue,
                 };
@@ -152,26 +155,34 @@ fn get_class_cardinality_restrictions_inner(
                 let mut max = None;
                 let mut exact = None;
 
-                let card_result =
-                    query::get_by_entity_predicate(conn, node, owl::CARDINALITY)?;
+                let card_result = query::get_by_entity_predicate(conn, node, owl::CARDINALITY)?;
                 if let Some(t) = card_result.triples.first() {
-                    if let crate::eavto::Object::Integer(v) = &t.object { exact = Some(*v as u32); }
+                    if let crate::eavto::Object::Integer(v) = &t.object {
+                        exact = Some(*v as u32);
+                    }
                 }
 
-                let min_result =
-                    query::get_by_entity_predicate(conn, node, owl::MIN_CARDINALITY)?;
+                let min_result = query::get_by_entity_predicate(conn, node, owl::MIN_CARDINALITY)?;
                 if let Some(t) = min_result.triples.first() {
-                    if let crate::eavto::Object::Integer(v) = &t.object { min = Some(*v as u32); }
+                    if let crate::eavto::Object::Integer(v) = &t.object {
+                        min = Some(*v as u32);
+                    }
                 }
 
-                let max_result =
-                    query::get_by_entity_predicate(conn, node, owl::MAX_CARDINALITY)?;
+                let max_result = query::get_by_entity_predicate(conn, node, owl::MAX_CARDINALITY)?;
                 if let Some(t) = max_result.triples.first() {
-                    if let crate::eavto::Object::Integer(v) = &t.object { max = Some(*v as u32); }
+                    if let crate::eavto::Object::Integer(v) = &t.object {
+                        max = Some(*v as u32);
+                    }
                 }
 
                 seen_properties.insert(property_iri.clone());
-                restrictions.push(CardinalityRestriction { property_iri, min, max, exact });
+                restrictions.push(CardinalityRestriction {
+                    property_iri,
+                    min,
+                    max,
+                    exact,
+                });
             } else {
                 parent_iris.push(node.to_string());
             }
@@ -223,19 +234,15 @@ pub fn validate_property_cardinality(
             for restriction in restrictions {
                 if restriction.property_iri == property_iri {
                     if restriction.is_violated(new_value_count) {
-                        let prop_label_result = query::get_by_entity_predicate(
-                            conn,
-                            property_iri,
-                            "rdfs:label",
-                        )?;
-                        let prop_label = prop_label_result.triples.first()
+                        let prop_label_result =
+                            query::get_by_entity_predicate(conn, property_iri, "rdfs:label")?;
+                        let prop_label = prop_label_result
+                            .triples
+                            .first()
                             .and_then(|t| t.object.as_literal());
 
                         return Err(OwlError::CardinalityViolation(
-                            restriction.violation_message(
-                                new_value_count,
-                                prop_label.as_deref(),
-                            )
+                            restriction.violation_message(new_value_count, prop_label.as_deref()),
                         ));
                     }
                 }
@@ -258,8 +265,8 @@ pub fn set_class_cardinality_restrictions(
     restrictions: &[PropertyRestriction<'_>],
     origin: &str,
 ) -> Result<()> {
-    use crate::eavto::{store, query, Triple, Object};
-    use sha2::{Sha256, Digest};
+    use crate::eavto::{query, store, Object, Triple};
+    use sha2::{Digest, Sha256};
 
     let subclass_result = query::get_by_entity_predicate(conn, class_iri, "rdfs:subClassOf")?;
     for triple in &subclass_result.triples {
@@ -268,18 +275,31 @@ pub fn set_class_cardinality_restrictions(
                 continue;
             }
             let type_result = query::get_by_entity_predicate(conn, node, "rdf:type")?;
-            let is_restriction = type_result.triples.iter()
-                .any(|t| t.object.as_iri().map(|iri| iri == owl::RESTRICTION).unwrap_or(false));
+            let is_restriction = type_result.triples.iter().any(|t| {
+                t.object
+                    .as_iri()
+                    .map(|iri| iri == owl::RESTRICTION)
+                    .unwrap_or(false)
+            });
             if !is_restriction {
                 continue;
             }
 
             let mut to_retract: Vec<Triple> = Vec::new();
-            to_retract.push(Triple::new(class_iri, "rdfs:subClassOf", triple.object.clone()));
+            to_retract.push(Triple::new(
+                class_iri,
+                "rdfs:subClassOf",
+                triple.object.clone(),
+            ));
             for rt in &type_result.triples {
                 to_retract.push(Triple::new(node, "rdf:type", rt.object.clone()));
             }
-            for predicate in [owl::ON_PROPERTY, owl::MIN_CARDINALITY, owl::CARDINALITY, owl::MAX_CARDINALITY] {
+            for predicate in [
+                owl::ON_PROPERTY,
+                owl::MIN_CARDINALITY,
+                owl::CARDINALITY,
+                owl::MAX_CARDINALITY,
+            ] {
                 let result = query::get_by_entity_predicate(conn, node, predicate)?;
                 for rt in result.triples {
                     to_retract.push(Triple::new(node, predicate, rt.object));
@@ -304,7 +324,10 @@ pub fn set_class_cardinality_restrictions(
         let hash = hasher.finalize();
         let blank_id = format!(
             "_:restriction_{}",
-            hash[..8].iter().map(|b| format!("{:02x}", b)).collect::<String>()
+            hash[..8]
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<String>()
         );
 
         subclass_link_triples.push(Triple::new(
@@ -361,7 +384,11 @@ pub fn set_class_required_fields(
 ) -> Result<()> {
     let restrictions: Vec<PropertyRestriction<'_>> = required_properties
         .iter()
-        .map(|iri| PropertyRestriction { property_iri: iri, min: Some(1), max: None })
+        .map(|iri| PropertyRestriction {
+            property_iri: iri,
+            min: Some(1),
+            max: None,
+        })
         .collect();
     set_class_cardinality_restrictions(conn, class_iri, &restrictions, origin)
 }
@@ -369,4 +396,3 @@ pub fn set_class_required_fields(
 #[cfg(test)]
 #[path = "cardinality_tests.rs"]
 mod tests;
-

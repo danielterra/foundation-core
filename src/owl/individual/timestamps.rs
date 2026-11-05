@@ -1,4 +1,4 @@
-use crate::eavto::{store, Triple, Object, Connection};
+use crate::eavto::{store, Connection, Object, Triple};
 
 pub const LAST_UPDATED_AT: &str = "foundation:lastUpdatedAt";
 

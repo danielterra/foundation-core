@@ -35,14 +35,16 @@ fn test_get_instances() {
     let mut conn = setup_test_db();
     let class = Class::new("foundation:Person");
 
-    class.assert(
-        &mut conn,
-        ClassType::OwlClass,
-        "Person",
-        "person-icon",
-        None,
-        "test",
-    ).unwrap();
+    class
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Person",
+            "person-icon",
+            None,
+            "test",
+        )
+        .unwrap();
 
     // Create instances
     let triple1 = Triple::new(
@@ -68,24 +70,64 @@ fn test_get_instances() {
 fn test_get_instances_polymorphic() {
     let mut conn = setup_test_db();
 
-    Class::new("foundation:Animal").assert(
-        &mut conn, ClassType::OwlClass, "Animal", "animal", None, "test",
-    ).unwrap();
-    Class::new("foundation:Mammal").assert(
-        &mut conn, ClassType::OwlClass, "Mammal", "mammal",
-        Some("foundation:Animal"), "test",
-    ).unwrap();
-    Class::new("foundation:Dog").assert(
-        &mut conn, ClassType::OwlClass, "Dog", "dog",
-        Some("foundation:Mammal"), "test",
-    ).unwrap();
+    Class::new("foundation:Animal")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Animal",
+            "animal",
+            None,
+            "test",
+        )
+        .unwrap();
+    Class::new("foundation:Mammal")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Mammal",
+            "mammal",
+            Some("foundation:Animal"),
+            "test",
+        )
+        .unwrap();
+    Class::new("foundation:Dog")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Dog",
+            "dog",
+            Some("foundation:Mammal"),
+            "test",
+        )
+        .unwrap();
 
-    store::assert_triples(&mut conn, &[
-        Triple::new("foundation:Rex", rdf::TYPE, Object::Iri("foundation:Dog".to_string())),
-        Triple::new("foundation:Lassie", rdf::TYPE, Object::Iri("foundation:Dog".to_string())),
-        Triple::new("foundation:Bat", rdf::TYPE, Object::Iri("foundation:Mammal".to_string())),
-        Triple::new("foundation:GenericAnimal", rdf::TYPE, Object::Iri("foundation:Animal".to_string())),
-    ], "test").unwrap();
+    store::assert_triples(
+        &mut conn,
+        &[
+            Triple::new(
+                "foundation:Rex",
+                rdf::TYPE,
+                Object::Iri("foundation:Dog".to_string()),
+            ),
+            Triple::new(
+                "foundation:Lassie",
+                rdf::TYPE,
+                Object::Iri("foundation:Dog".to_string()),
+            ),
+            Triple::new(
+                "foundation:Bat",
+                rdf::TYPE,
+                Object::Iri("foundation:Mammal".to_string()),
+            ),
+            Triple::new(
+                "foundation:GenericAnimal",
+                rdf::TYPE,
+                Object::Iri("foundation:Animal".to_string()),
+            ),
+        ],
+        "test",
+    )
+    .unwrap();
 
     let instances = Class::get_instances(&conn, "foundation:Animal").unwrap();
     assert_eq!(instances.len(), 4);
@@ -112,25 +154,29 @@ fn test_class_hierarchy() {
 
     // Create super class (with owl:Thing as parent)
     let super_class = Class::new("foundation:Animal");
-    super_class.assert(
-        &mut conn,
-        ClassType::OwlClass,
-        "Animal",
-        "animal-icon",
-        None,
-        "test",
-    ).unwrap();
+    super_class
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Animal",
+            "animal-icon",
+            None,
+            "test",
+        )
+        .unwrap();
 
     // Create sub class (with Animal as parent)
     let sub_class = Class::new("foundation:Dog");
-    sub_class.assert(
-        &mut conn,
-        ClassType::OwlClass,
-        "Dog",
-        "dog-icon",
-        Some("foundation:Animal"),
-        "test",
-    ).unwrap();
+    sub_class
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Dog",
+            "dog-icon",
+            Some("foundation:Animal"),
+            "test",
+        )
+        .unwrap();
 
     // Get super class data and check sub classes
     let animal_data = Class::get(&conn, "foundation:Animal").unwrap().unwrap();
@@ -149,14 +195,16 @@ fn test_single_subclass_of_relationship() {
 
     // Create class with explicit parent
     let test_class = Class::new("foundation:TestClass");
-    test_class.assert(
-        &mut conn,
-        ClassType::OwlClass,
-        "Test Class",
-        "test-icon",
-        Some("owl:Thing"),
-        "test",
-    ).unwrap();
+    test_class
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Test Class",
+            "test-icon",
+            Some("owl:Thing"),
+            "test",
+        )
+        .unwrap();
 
     // Get class data
     let class_data = Class::get(&conn, "foundation:TestClass").unwrap().unwrap();
@@ -177,14 +225,16 @@ fn test_owl_one_of_enumeration() {
 
     // Create enumeration class with owl:oneOf
     let priority_class = Class::new("foundation:TaskPriority");
-    priority_class.assert(
-        &mut conn,
-        ClassType::OwlClass,
-        "Task Priority",
-        "priority-icon",
-        None,
-        "test",
-    ).unwrap();
+    priority_class
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Task Priority",
+            "priority-icon",
+            None,
+            "test",
+        )
+        .unwrap();
 
     // Create enumerated individuals
     let high = Triple::new(
@@ -231,7 +281,8 @@ fn test_owl_one_of_enumeration() {
         &mut conn,
         &[list1, list1_rest, list2, list2_rest, list3, list3_rest],
         "test",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Add owl:oneOf to the class
     let one_of = Triple::new(
@@ -242,11 +293,19 @@ fn test_owl_one_of_enumeration() {
     store::assert_triples(&mut conn, &[one_of], "test").unwrap();
 
     // Get class and verify owl:oneOf values
-    let class_data = Class::get(&conn, "foundation:TaskPriority").unwrap().unwrap();
+    let class_data = Class::get(&conn, "foundation:TaskPriority")
+        .unwrap()
+        .unwrap();
     assert_eq!(class_data.one_of_values.len(), 3);
-    assert!(class_data.one_of_values.contains(&"foundation:HighPriority".to_string()));
-    assert!(class_data.one_of_values.contains(&"foundation:MediumPriority".to_string()));
-    assert!(class_data.one_of_values.contains(&"foundation:LowPriority".to_string()));
+    assert!(class_data
+        .one_of_values
+        .contains(&"foundation:HighPriority".to_string()));
+    assert!(class_data
+        .one_of_values
+        .contains(&"foundation:MediumPriority".to_string()));
+    assert!(class_data
+        .one_of_values
+        .contains(&"foundation:LowPriority".to_string()));
 }
 
 #[test]
@@ -267,7 +326,8 @@ fn test_parse_rdf_list() {
         &mut conn,
         &[list1, list1_rest, list2, list2_rest, list3, list3_rest],
         "test",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Parse the list
     let values = Class::parse_rdf_list(&conn, "_:n1").unwrap();
@@ -285,33 +345,49 @@ fn test_set_super_classes_preserves_owl_restrictions() {
     let mut conn = setup_test_db();
 
     let class = Class::new("foundation:Task");
-    class.assert(
-        &mut conn, ClassType::OwlClass, "Task", "task-icon", None, "test",
-    ).unwrap();
+    class
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Task",
+            "task-icon",
+            None,
+            "test",
+        )
+        .unwrap();
 
-    store::assert_triples(&mut conn, &[
-        Triple::new(
-            "foundation:taskName", "rdf:type",
+    store::assert_triples(
+        &mut conn,
+        &[Triple::new(
+            "foundation:taskName",
+            "rdf:type",
             Object::Iri("owl:DatatypeProperty".to_string()),
-        ),
-    ], "test").unwrap();
+        )],
+        "test",
+    )
+    .unwrap();
 
     cardinality::set_class_required_fields(
-        &mut conn, "foundation:Task", &["foundation:taskName"], "test",
-    ).unwrap();
+        &mut conn,
+        "foundation:Task",
+        &["foundation:taskName"],
+        "test",
+    )
+    .unwrap();
 
-    let before =
-        cardinality::get_class_cardinality_restrictions(&conn, "foundation:Task").unwrap();
-    assert_eq!(before.len(), 1, "Should have 1 restriction before set_super_classes");
-
-    Class::set_super_classes(
-        &mut conn, "foundation:Task", &["owl:Thing"], "test",
-    ).unwrap();
-
-    let after =
-        cardinality::get_class_cardinality_restrictions(&conn, "foundation:Task").unwrap();
+    let before = cardinality::get_class_cardinality_restrictions(&conn, "foundation:Task").unwrap();
     assert_eq!(
-        after.len(), 1,
+        before.len(),
+        1,
+        "Should have 1 restriction before set_super_classes"
+    );
+
+    Class::set_super_classes(&mut conn, "foundation:Task", &["owl:Thing"], "test").unwrap();
+
+    let after = cardinality::get_class_cardinality_restrictions(&conn, "foundation:Task").unwrap();
+    assert_eq!(
+        after.len(),
+        1,
         "OWL restrictions must survive set_super_classes; got: {:?}",
         after,
     );
@@ -322,17 +398,36 @@ fn test_get_descendant_iris() {
     let mut conn = setup_test_db();
 
     // Build: Animal -> Mammal -> Dog (3-level hierarchy)
-    Class::new("foundation:Animal").assert(
-        &mut conn, ClassType::OwlClass, "Animal", "animal", None, "test",
-    ).unwrap();
-    Class::new("foundation:Mammal").assert(
-        &mut conn, ClassType::OwlClass, "Mammal", "mammal",
-        Some("foundation:Animal"), "test",
-    ).unwrap();
-    Class::new("foundation:Dog").assert(
-        &mut conn, ClassType::OwlClass, "Dog", "dog",
-        Some("foundation:Mammal"), "test",
-    ).unwrap();
+    Class::new("foundation:Animal")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Animal",
+            "animal",
+            None,
+            "test",
+        )
+        .unwrap();
+    Class::new("foundation:Mammal")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Mammal",
+            "mammal",
+            Some("foundation:Animal"),
+            "test",
+        )
+        .unwrap();
+    Class::new("foundation:Dog")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Dog",
+            "dog",
+            Some("foundation:Mammal"),
+            "test",
+        )
+        .unwrap();
 
     let descendants = Class::get_descendant_iris(&conn, "foundation:Animal").unwrap();
     assert_eq!(descendants.len(), 3);
@@ -352,30 +447,56 @@ fn test_get_super_classes_excludes_blank_nodes() {
     let mut conn = setup_test_db();
 
     let parent = Class::new("foundation:BaseItem");
-    parent.assert(
-        &mut conn, ClassType::OwlClass, "Base Item", "base-icon", None, "test",
-    ).unwrap();
+    parent
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Base Item",
+            "base-icon",
+            None,
+            "test",
+        )
+        .unwrap();
 
     let child = Class::new("foundation:SpecificItem");
-    child.assert(
-        &mut conn, ClassType::OwlClass, "Specific Item", "item-icon",
-        Some("foundation:BaseItem"), "test",
-    ).unwrap();
+    child
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Specific Item",
+            "item-icon",
+            Some("foundation:BaseItem"),
+            "test",
+        )
+        .unwrap();
 
-    store::assert_triples(&mut conn, &[
-        Triple::new(
-            "foundation:itemName", "rdf:type",
+    store::assert_triples(
+        &mut conn,
+        &[Triple::new(
+            "foundation:itemName",
+            "rdf:type",
             Object::Iri("owl:DatatypeProperty".to_string()),
-        ),
-    ], "test").unwrap();
+        )],
+        "test",
+    )
+    .unwrap();
 
     cardinality::set_class_required_fields(
-        &mut conn, "foundation:SpecificItem", &["foundation:itemName"], "test",
-    ).unwrap();
+        &mut conn,
+        "foundation:SpecificItem",
+        &["foundation:itemName"],
+        "test",
+    )
+    .unwrap();
 
-    let class_data = Class::get(&conn, "foundation:SpecificItem").unwrap().unwrap();
-    let super_iris: Vec<&str> =
-        class_data.super_classes.iter().map(|t| t.iri.as_str()).collect();
+    let class_data = Class::get(&conn, "foundation:SpecificItem")
+        .unwrap()
+        .unwrap();
+    let super_iris: Vec<&str> = class_data
+        .super_classes
+        .iter()
+        .map(|t| t.iri.as_str())
+        .collect();
 
     assert!(
         !super_iris.iter().any(|iri| iri.starts_with("_:")),
@@ -402,12 +523,19 @@ fn test_find_all_iris_empty_db() {
 fn test_find_all_iris_returns_owl_classes() {
     let mut conn = setup_test_db();
 
-    Class::new("foundation:Person").assert(
-        &mut conn, ClassType::OwlClass, "Person", "person", None, "test",
-    ).unwrap();
-    Class::new("foundation:Task").assert(
-        &mut conn, ClassType::OwlClass, "Task", "task", None, "test",
-    ).unwrap();
+    Class::new("foundation:Person")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Person",
+            "person",
+            None,
+            "test",
+        )
+        .unwrap();
+    Class::new("foundation:Task")
+        .assert(&mut conn, ClassType::OwlClass, "Task", "task", None, "test")
+        .unwrap();
 
     let iris = Class::find_all_iris(&conn).unwrap();
     assert!(iris.contains(&"foundation:Person".to_string()));
@@ -418,9 +546,16 @@ fn test_find_all_iris_returns_owl_classes() {
 fn test_find_all_iris_returns_rdfs_classes() {
     let mut conn = setup_test_db();
 
-    store::assert_triples(&mut conn, &[
-        Triple::new("foundation:RdfsOnly", rdf::TYPE, Object::Iri(rdfs::CLASS.to_string())),
-    ], "test").unwrap();
+    store::assert_triples(
+        &mut conn,
+        &[Triple::new(
+            "foundation:RdfsOnly",
+            rdf::TYPE,
+            Object::Iri(rdfs::CLASS.to_string()),
+        )],
+        "test",
+    )
+    .unwrap();
 
     let iris = Class::find_all_iris(&conn).unwrap();
     assert!(iris.contains(&"foundation:RdfsOnly".to_string()));
@@ -430,12 +565,26 @@ fn test_find_all_iris_returns_rdfs_classes() {
 fn test_find_all_iris_deduplicates_dual_typed_class() {
     let mut conn = setup_test_db();
 
-    store::assert_triples(&mut conn, &[
-        Triple::new("foundation:Both", rdf::TYPE, Object::Iri(owl::CLASS.to_string())),
-    ], "test").unwrap();
-    store::append_triples(&mut conn, &[
-        Triple::new("foundation:Both", rdf::TYPE, Object::Iri(rdfs::CLASS.to_string())),
-    ], "test").unwrap();
+    store::assert_triples(
+        &mut conn,
+        &[Triple::new(
+            "foundation:Both",
+            rdf::TYPE,
+            Object::Iri(owl::CLASS.to_string()),
+        )],
+        "test",
+    )
+    .unwrap();
+    store::append_triples(
+        &mut conn,
+        &[Triple::new(
+            "foundation:Both",
+            rdf::TYPE,
+            Object::Iri(rdfs::CLASS.to_string()),
+        )],
+        "test",
+    )
+    .unwrap();
 
     let iris = Class::find_all_iris(&conn).unwrap();
     let count = iris.iter().filter(|iri| *iri == "foundation:Both").count();
@@ -446,25 +595,50 @@ fn test_find_all_iris_deduplicates_dual_typed_class() {
 fn test_find_all_iris_is_sorted() {
     let mut conn = setup_test_db();
 
-    Class::new("foundation:Zebra").assert(
-        &mut conn, ClassType::OwlClass, "Zebra", "zebra", None, "test",
-    ).unwrap();
-    Class::new("foundation:Apple").assert(
-        &mut conn, ClassType::OwlClass, "Apple", "apple", None, "test",
-    ).unwrap();
-    Class::new("foundation:Mango").assert(
-        &mut conn, ClassType::OwlClass, "Mango", "mango", None, "test",
-    ).unwrap();
+    Class::new("foundation:Zebra")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Zebra",
+            "zebra",
+            None,
+            "test",
+        )
+        .unwrap();
+    Class::new("foundation:Apple")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Apple",
+            "apple",
+            None,
+            "test",
+        )
+        .unwrap();
+    Class::new("foundation:Mango")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Mango",
+            "mango",
+            None,
+            "test",
+        )
+        .unwrap();
 
     let iris = Class::find_all_iris(&conn).unwrap();
-    let foundation_iris: Vec<&str> = iris.iter()
+    let foundation_iris: Vec<&str> = iris
+        .iter()
         .filter(|iri| iri.starts_with("foundation:"))
         .map(|s| s.as_str())
         .collect();
 
     let mut sorted = foundation_iris.clone();
     sorted.sort();
-    assert_eq!(foundation_iris, sorted, "Result should be sorted alphabetically");
+    assert_eq!(
+        foundation_iris, sorted,
+        "Result should be sorted alphabetically"
+    );
 }
 
 // ── retract_all ──────────────────────────────────────────────────────────
@@ -473,30 +647,49 @@ fn test_find_all_iris_is_sorted() {
 fn test_retract_all_removes_class() {
     let mut conn = setup_test_db();
 
-    Class::new("foundation:Person").assert(
-        &mut conn, ClassType::OwlClass, "Person", "person", None, "test",
-    ).unwrap();
+    Class::new("foundation:Person")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Person",
+            "person",
+            None,
+            "test",
+        )
+        .unwrap();
 
     assert!(Class::get(&conn, "foundation:Person").unwrap().is_some());
 
     Class::retract_all(&mut conn, "foundation:Person", "test").unwrap();
 
-    assert!(Class::get(&conn, "foundation:Person").unwrap().is_none(),
-        "Class should be gone after retract_all");
+    assert!(
+        Class::get(&conn, "foundation:Person").unwrap().is_none(),
+        "Class should be gone after retract_all"
+    );
 }
 
 #[test]
 fn test_retract_all_removes_all_triples() {
     let mut conn = setup_test_db();
 
-    Class::new("foundation:Person").assert(
-        &mut conn, ClassType::OwlClass, "Person", "person", Some("foundation:Agent"), "test",
-    ).unwrap();
+    Class::new("foundation:Person")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Person",
+            "person",
+            Some("foundation:Agent"),
+            "test",
+        )
+        .unwrap();
 
     Class::retract_all(&mut conn, "foundation:Person", "test").unwrap();
 
     let remaining = crate::eavto::query::get_by_entity(&conn, "foundation:Person").unwrap();
-    assert!(remaining.triples.is_empty(), "All triples should be retracted");
+    assert!(
+        remaining.triples.is_empty(),
+        "All triples should be retracted"
+    );
 }
 
 #[test]
@@ -504,34 +697,53 @@ fn test_retract_all_noop_on_nonexistent_class() {
     let mut conn = setup_test_db();
 
     let result = Class::retract_all(&mut conn, "foundation:Ghost", "test");
-    assert!(result.is_ok(), "retract_all on non-existent class should not error");
+    assert!(
+        result.is_ok(),
+        "retract_all on non-existent class should not error"
+    );
 }
 
 #[test]
 fn test_retract_all_does_not_affect_other_classes() {
     let mut conn = setup_test_db();
 
-    Class::new("foundation:Person").assert(
-        &mut conn, ClassType::OwlClass, "Person", "person", None, "test",
-    ).unwrap();
-    Class::new("foundation:Task").assert(
-        &mut conn, ClassType::OwlClass, "Task", "task", None, "test",
-    ).unwrap();
+    Class::new("foundation:Person")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Person",
+            "person",
+            None,
+            "test",
+        )
+        .unwrap();
+    Class::new("foundation:Task")
+        .assert(&mut conn, ClassType::OwlClass, "Task", "task", None, "test")
+        .unwrap();
 
     Class::retract_all(&mut conn, "foundation:Person", "test").unwrap();
 
     assert!(Class::get(&conn, "foundation:Person").unwrap().is_none());
-    assert!(Class::get(&conn, "foundation:Task").unwrap().is_some(),
-        "Other classes should be unaffected");
+    assert!(
+        Class::get(&conn, "foundation:Task").unwrap().is_some(),
+        "Other classes should be unaffected"
+    );
 }
 
 #[test]
 fn test_retract_all_class_no_longer_in_find_all_iris() {
     let mut conn = setup_test_db();
 
-    Class::new("foundation:Person").assert(
-        &mut conn, ClassType::OwlClass, "Person", "person", None, "test",
-    ).unwrap();
+    Class::new("foundation:Person")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Person",
+            "person",
+            None,
+            "test",
+        )
+        .unwrap();
 
     let before = Class::find_all_iris(&conn).unwrap();
     assert!(before.contains(&"foundation:Person".to_string()));
@@ -539,8 +751,10 @@ fn test_retract_all_class_no_longer_in_find_all_iris() {
     Class::retract_all(&mut conn, "foundation:Person", "test").unwrap();
 
     let after = Class::find_all_iris(&conn).unwrap();
-    assert!(!after.contains(&"foundation:Person".to_string()),
-        "Retracted class should not appear in find_all_iris");
+    assert!(
+        !after.contains(&"foundation:Person".to_string()),
+        "Retracted class should not appear in find_all_iris"
+    );
 }
 
 // ── set_label ─────────────────────────────────────────────────────────────
@@ -548,9 +762,16 @@ fn test_retract_all_class_no_longer_in_find_all_iris() {
 #[test]
 fn test_set_label_updates_label() {
     let mut conn = setup_test_db();
-    Class::new("foundation:Task").assert(
-        &mut conn, ClassType::OwlClass, "Old Label", "https://example.com/icon.svg", None, "test",
-    ).unwrap();
+    Class::new("foundation:Task")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Old Label",
+            "https://example.com/icon.svg",
+            None,
+            "test",
+        )
+        .unwrap();
 
     Class::set_label(&mut conn, "foundation:Task", "New Label", "test").unwrap();
 
@@ -561,9 +782,16 @@ fn test_set_label_updates_label() {
 #[test]
 fn test_set_label_retracts_old_label() {
     let mut conn = setup_test_db();
-    Class::new("foundation:Task").assert(
-        &mut conn, ClassType::OwlClass, "Old Label", "https://example.com/icon.svg", None, "test",
-    ).unwrap();
+    Class::new("foundation:Task")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Old Label",
+            "https://example.com/icon.svg",
+            None,
+            "test",
+        )
+        .unwrap();
 
     Class::set_label(&mut conn, "foundation:Task", "New Label", "test").unwrap();
 
@@ -586,9 +814,16 @@ fn test_set_label_retracts_old_label() {
 #[test]
 fn test_set_comment_adds_comment() {
     let mut conn = setup_test_db();
-    Class::new("foundation:Task").assert(
-        &mut conn, ClassType::OwlClass, "Task", "https://example.com/icon.svg", None, "test",
-    ).unwrap();
+    Class::new("foundation:Task")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Task",
+            "https://example.com/icon.svg",
+            None,
+            "test",
+        )
+        .unwrap();
 
     Class::set_comment(&mut conn, "foundation:Task", "A task entity", "test").unwrap();
 
@@ -599,9 +834,16 @@ fn test_set_comment_adds_comment() {
 #[test]
 fn test_set_comment_replaces_existing_comment() {
     let mut conn = setup_test_db();
-    Class::new("foundation:Task").assert(
-        &mut conn, ClassType::OwlClass, "Task", "https://example.com/icon.svg", None, "test",
-    ).unwrap();
+    Class::new("foundation:Task")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Task",
+            "https://example.com/icon.svg",
+            None,
+            "test",
+        )
+        .unwrap();
     Class::set_comment(&mut conn, "foundation:Task", "First comment", "test").unwrap();
     Class::set_comment(&mut conn, "foundation:Task", "Updated comment", "test").unwrap();
 
@@ -621,11 +863,24 @@ fn test_set_comment_replaces_existing_comment() {
 #[test]
 fn test_set_icon_url_icon_stores_as_has_icon_literal() {
     let mut conn = setup_test_db();
-    Class::new("foundation:Task").assert(
-        &mut conn, ClassType::OwlClass, "Task", "https://example.com/original.svg", None, "test",
-    ).unwrap();
+    Class::new("foundation:Task")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Task",
+            "https://example.com/original.svg",
+            None,
+            "test",
+        )
+        .unwrap();
 
-    Class::set_icon(&mut conn, "foundation:Task", "https://example.com/new.svg", "test").unwrap();
+    Class::set_icon(
+        &mut conn,
+        "foundation:Task",
+        "https://example.com/new.svg",
+        "test",
+    )
+    .unwrap();
 
     let active: i64 = conn.query_row(
         "SELECT COUNT(*) FROM triples_current WHERE subject = 'foundation:Task' AND predicate = 'foundation:hasIcon' AND object_type = 'literal'",
@@ -640,28 +895,46 @@ fn test_set_icon_url_icon_stores_as_has_icon_literal() {
 #[test]
 fn test_set_super_class_updates_parent() {
     let mut conn = setup_test_db();
-    Class::new("foundation:Task").assert(
-        &mut conn, ClassType::OwlClass, "Task", "https://example.com/task.svg",
-        Some("foundation:Work"), "test",
-    ).unwrap();
+    Class::new("foundation:Task")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Task",
+            "https://example.com/task.svg",
+            Some("foundation:Work"),
+            "test",
+        )
+        .unwrap();
 
     Class::set_super_class(&mut conn, "foundation:Task", "foundation:Activity", "test").unwrap();
 
     let class = Class::get(&conn, "foundation:Task").unwrap().unwrap();
     let super_iris: Vec<&str> = class.super_classes.iter().map(|t| t.iri.as_str()).collect();
-    assert!(super_iris.contains(&"foundation:Activity"),
-        "New super class should be set, got: {:?}", super_iris);
-    assert!(!super_iris.contains(&"foundation:Work"),
-        "Old super class should be removed, got: {:?}", super_iris);
+    assert!(
+        super_iris.contains(&"foundation:Activity"),
+        "New super class should be set, got: {:?}",
+        super_iris
+    );
+    assert!(
+        !super_iris.contains(&"foundation:Work"),
+        "Old super class should be removed, got: {:?}",
+        super_iris
+    );
 }
 
 #[test]
 fn test_set_super_class_replaces_old() {
     let mut conn = setup_test_db();
-    Class::new("foundation:Task").assert(
-        &mut conn, ClassType::OwlClass, "Task", "https://example.com/task.svg",
-        Some("foundation:Work"), "test",
-    ).unwrap();
+    Class::new("foundation:Task")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Task",
+            "https://example.com/task.svg",
+            Some("foundation:Work"),
+            "test",
+        )
+        .unwrap();
 
     Class::set_super_class(&mut conn, "foundation:Task", "foundation:NewParent", "test").unwrap();
 
@@ -677,22 +950,40 @@ fn test_set_super_class_replaces_old() {
 
 fn seed_prop(conn: &mut rusqlite::Connection, prop_iri: &str, label: &str, domain: &str) {
     use crate::eavto::store;
-    store::assert_triples(conn, &[
-        Triple::new(prop_iri, rdf::TYPE, Object::Iri(owl::DATATYPE_PROPERTY.to_string())),
-        Triple::new(prop_iri, rdfs::LABEL, Object::Literal {
-            value: label.to_string(),
-            datatype: Some("xsd:string".to_string()),
-            language: None,
-        }),
-        Triple::new(prop_iri, rdfs::DOMAIN, Object::Iri(domain.to_string())),
-    ], "test").unwrap();
+    store::assert_triples(
+        conn,
+        &[
+            Triple::new(
+                prop_iri,
+                rdf::TYPE,
+                Object::Iri(owl::DATATYPE_PROPERTY.to_string()),
+            ),
+            Triple::new(
+                prop_iri,
+                rdfs::LABEL,
+                Object::Literal {
+                    value: label.to_string(),
+                    datatype: Some("xsd:string".to_string()),
+                    language: None,
+                },
+            ),
+            Triple::new(prop_iri, rdfs::DOMAIN, Object::Iri(domain.to_string())),
+        ],
+        "test",
+    )
+    .unwrap();
 }
 
 #[test]
 fn test_get_properties_bounded_bound_in_sql() {
     let mut conn = setup_test_db();
     for i in 0..5 {
-        seed_prop(&mut conn, &format!("test:prop{}", i), &format!("Prop {}", i), "test:Widget");
+        seed_prop(
+            &mut conn,
+            &format!("test:prop{}", i),
+            &format!("Prop {}", i),
+            "test:Widget",
+        );
     }
     let rows = Class::get_properties_for_domain_classes_bounded(
         &conn,
@@ -700,16 +991,32 @@ fn test_get_properties_bounded_bound_in_sql() {
         &[],
         2,
         0,
-    ).unwrap();
-    assert_eq!(rows.len(), 2, "limit=2 deve retornar exatamente 2 propriedades");
+    )
+    .unwrap();
+    assert_eq!(
+        rows.len(),
+        2,
+        "limit=2 deve retornar exatamente 2 propriedades"
+    );
 }
 
 #[test]
 fn test_get_properties_bounded_inheritance() {
     let mut conn = setup_test_db();
 
-    Class::new("test:Animal").assert(&mut conn, ClassType::OwlClass, "Animal", "a", None, "test").unwrap();
-    Class::new("test:Dog").assert(&mut conn, ClassType::OwlClass, "Dog", "d", Some("test:Animal"), "test").unwrap();
+    Class::new("test:Animal")
+        .assert(&mut conn, ClassType::OwlClass, "Animal", "a", None, "test")
+        .unwrap();
+    Class::new("test:Dog")
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Dog",
+            "d",
+            Some("test:Animal"),
+            "test",
+        )
+        .unwrap();
 
     seed_prop(&mut conn, "test:hasName", "has name", "test:Animal");
     seed_prop(&mut conn, "test:hasBone", "has bone", "test:Dog");
@@ -720,24 +1027,46 @@ fn test_get_properties_bounded_inheritance() {
         &[],
         500,
         0,
-    ).unwrap();
+    )
+    .unwrap();
     let prop_iris: Vec<&str> = rows.iter().map(|(iri, ..)| iri.as_str()).collect();
-    assert!(prop_iris.contains(&"test:hasName"), "propriedade da classe-pai deve aparecer");
-    assert!(prop_iris.contains(&"test:hasBone"), "propriedade da classe-filha deve aparecer");
+    assert!(
+        prop_iris.contains(&"test:hasName"),
+        "propriedade da classe-pai deve aparecer"
+    );
+    assert!(
+        prop_iris.contains(&"test:hasBone"),
+        "propriedade da classe-filha deve aparecer"
+    );
 }
 
 #[test]
 fn test_get_properties_bounded_has_more_via_offset() {
     let mut conn = setup_test_db();
     for i in 0..4 {
-        seed_prop(&mut conn, &format!("test:q{}", i), &format!("Q {}", i), "test:Box");
+        seed_prop(
+            &mut conn,
+            &format!("test:q{}", i),
+            &format!("Q {}", i),
+            "test:Box",
+        );
     }
     let page1 = Class::get_properties_for_domain_classes_bounded(
-        &conn, &["test:Box".to_string()], &[], 2, 0,
-    ).unwrap();
+        &conn,
+        &["test:Box".to_string()],
+        &[],
+        2,
+        0,
+    )
+    .unwrap();
     let page2 = Class::get_properties_for_domain_classes_bounded(
-        &conn, &["test:Box".to_string()], &[], 2, 2,
-    ).unwrap();
+        &conn,
+        &["test:Box".to_string()],
+        &[],
+        2,
+        2,
+    )
+    .unwrap();
     assert_eq!(page1.len(), 2);
     assert_eq!(page2.len(), 2);
     let p1_iris: Vec<_> = page1.iter().map(|(iri, ..)| iri.clone()).collect();
@@ -750,10 +1079,24 @@ fn test_get_properties_bounded_has_more_via_offset() {
 fn test_get_properties_bounded_limit_zero_means_no_cap() {
     let mut conn = setup_test_db();
     for i in 0..6 {
-        seed_prop(&mut conn, &format!("test:r{}", i), &format!("R {}", i), "test:Gadget");
+        seed_prop(
+            &mut conn,
+            &format!("test:r{}", i),
+            &format!("R {}", i),
+            "test:Gadget",
+        );
     }
     let rows = Class::get_properties_for_domain_classes_bounded(
-        &conn, &["test:Gadget".to_string()], &[], 0, 0,
-    ).unwrap();
-    assert_eq!(rows.len(), 6, "limit=0 deve retornar todas as propriedades sem cap");
+        &conn,
+        &["test:Gadget".to_string()],
+        &[],
+        0,
+        0,
+    )
+    .unwrap();
+    assert_eq!(
+        rows.len(),
+        6,
+        "limit=0 deve retornar todas as propriedades sem cap"
+    );
 }

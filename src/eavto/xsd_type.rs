@@ -155,22 +155,22 @@ impl XsdType {
     pub fn is_numeric(&self) -> bool {
         matches!(
             self,
-            XsdType::Integer |
-            XsdType::Int |
-            XsdType::Long |
-            XsdType::Short |
-            XsdType::Byte |
-            XsdType::NonNegativeInteger |
-            XsdType::PositiveInteger |
-            XsdType::NonPositiveInteger |
-            XsdType::NegativeInteger |
-            XsdType::UnsignedLong |
-            XsdType::UnsignedInt |
-            XsdType::UnsignedShort |
-            XsdType::UnsignedByte |
-            XsdType::Decimal |
-            XsdType::Float |
-            XsdType::Double
+            XsdType::Integer
+                | XsdType::Int
+                | XsdType::Long
+                | XsdType::Short
+                | XsdType::Byte
+                | XsdType::NonNegativeInteger
+                | XsdType::PositiveInteger
+                | XsdType::NonPositiveInteger
+                | XsdType::NegativeInteger
+                | XsdType::UnsignedLong
+                | XsdType::UnsignedInt
+                | XsdType::UnsignedShort
+                | XsdType::UnsignedByte
+                | XsdType::Decimal
+                | XsdType::Float
+                | XsdType::Double
         )
     }
 
@@ -179,19 +179,19 @@ impl XsdType {
     pub fn is_integer(&self) -> bool {
         matches!(
             self,
-            XsdType::Integer |
-            XsdType::Int |
-            XsdType::Long |
-            XsdType::Short |
-            XsdType::Byte |
-            XsdType::NonNegativeInteger |
-            XsdType::PositiveInteger |
-            XsdType::NonPositiveInteger |
-            XsdType::NegativeInteger |
-            XsdType::UnsignedLong |
-            XsdType::UnsignedInt |
-            XsdType::UnsignedShort |
-            XsdType::UnsignedByte
+            XsdType::Integer
+                | XsdType::Int
+                | XsdType::Long
+                | XsdType::Short
+                | XsdType::Byte
+                | XsdType::NonNegativeInteger
+                | XsdType::PositiveInteger
+                | XsdType::NonPositiveInteger
+                | XsdType::NegativeInteger
+                | XsdType::UnsignedLong
+                | XsdType::UnsignedInt
+                | XsdType::UnsignedShort
+                | XsdType::UnsignedByte
         )
     }
 
@@ -264,9 +264,15 @@ mod tests {
         assert_eq!(XsdType::Long.as_iri(), "xsd:long");
         assert_eq!(XsdType::Short.as_iri(), "xsd:short");
         assert_eq!(XsdType::Byte.as_iri(), "xsd:byte");
-        assert_eq!(XsdType::NonNegativeInteger.as_iri(), "xsd:nonNegativeInteger");
+        assert_eq!(
+            XsdType::NonNegativeInteger.as_iri(),
+            "xsd:nonNegativeInteger"
+        );
         assert_eq!(XsdType::PositiveInteger.as_iri(), "xsd:positiveInteger");
-        assert_eq!(XsdType::NonPositiveInteger.as_iri(), "xsd:nonPositiveInteger");
+        assert_eq!(
+            XsdType::NonPositiveInteger.as_iri(),
+            "xsd:nonPositiveInteger"
+        );
         assert_eq!(XsdType::NegativeInteger.as_iri(), "xsd:negativeInteger");
         assert_eq!(XsdType::UnsignedLong.as_iri(), "xsd:unsignedLong");
         assert_eq!(XsdType::UnsignedInt.as_iri(), "xsd:unsignedInt");
@@ -312,7 +318,10 @@ mod tests {
 
     #[test]
     fn test_from_iri_all_string_types() {
-        assert_eq!(XsdType::from_iri("xsd:normalizedString"), Some(XsdType::NormalizedString));
+        assert_eq!(
+            XsdType::from_iri("xsd:normalizedString"),
+            Some(XsdType::NormalizedString)
+        );
         assert_eq!(XsdType::from_iri("token"), Some(XsdType::Token));
         assert_eq!(XsdType::from_iri("language"), Some(XsdType::Language));
         assert_eq!(XsdType::from_iri("Name"), Some(XsdType::Name));
@@ -325,14 +334,35 @@ mod tests {
         assert_eq!(XsdType::from_iri("long"), Some(XsdType::Long));
         assert_eq!(XsdType::from_iri("short"), Some(XsdType::Short));
         assert_eq!(XsdType::from_iri("byte"), Some(XsdType::Byte));
-        assert_eq!(XsdType::from_iri("nonNegativeInteger"), Some(XsdType::NonNegativeInteger));
-        assert_eq!(XsdType::from_iri("positiveInteger"), Some(XsdType::PositiveInteger));
-        assert_eq!(XsdType::from_iri("nonPositiveInteger"), Some(XsdType::NonPositiveInteger));
-        assert_eq!(XsdType::from_iri("negativeInteger"), Some(XsdType::NegativeInteger));
-        assert_eq!(XsdType::from_iri("unsignedLong"), Some(XsdType::UnsignedLong));
+        assert_eq!(
+            XsdType::from_iri("nonNegativeInteger"),
+            Some(XsdType::NonNegativeInteger)
+        );
+        assert_eq!(
+            XsdType::from_iri("positiveInteger"),
+            Some(XsdType::PositiveInteger)
+        );
+        assert_eq!(
+            XsdType::from_iri("nonPositiveInteger"),
+            Some(XsdType::NonPositiveInteger)
+        );
+        assert_eq!(
+            XsdType::from_iri("negativeInteger"),
+            Some(XsdType::NegativeInteger)
+        );
+        assert_eq!(
+            XsdType::from_iri("unsignedLong"),
+            Some(XsdType::UnsignedLong)
+        );
         assert_eq!(XsdType::from_iri("unsignedInt"), Some(XsdType::UnsignedInt));
-        assert_eq!(XsdType::from_iri("unsignedShort"), Some(XsdType::UnsignedShort));
-        assert_eq!(XsdType::from_iri("unsignedByte"), Some(XsdType::UnsignedByte));
+        assert_eq!(
+            XsdType::from_iri("unsignedShort"),
+            Some(XsdType::UnsignedShort)
+        );
+        assert_eq!(
+            XsdType::from_iri("unsignedByte"),
+            Some(XsdType::UnsignedByte)
+        );
     }
 
     #[test]
@@ -359,7 +389,10 @@ mod tests {
     #[test]
     fn test_from_iri_other_types() {
         assert_eq!(XsdType::from_iri("anyURI"), Some(XsdType::AnyURI));
-        assert_eq!(XsdType::from_iri("base64Binary"), Some(XsdType::Base64Binary));
+        assert_eq!(
+            XsdType::from_iri("base64Binary"),
+            Some(XsdType::Base64Binary)
+        );
         assert_eq!(XsdType::from_iri("hexBinary"), Some(XsdType::HexBinary));
     }
 

@@ -5,8 +5,8 @@
 // All entities (classes, individuals) are ultimately Things
 // ============================================================================
 
-use crate::eavto::Connection;
 use crate::eavto::query;
+use crate::eavto::Connection;
 use crate::owl::vocabulary::rdfs;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -34,18 +34,17 @@ impl Thing {
             .ok()
             .and_then(|r| {
                 r.triples.first().and_then(|t| match &t.object {
-                    crate::eavto::Object::Iri(icon_iri) => crate::owl::icon_iri_to_display(conn, icon_iri),
-                    crate::eavto::Object::Literal { value, .. } =>
-                        Some(crate::owl::icon_literal_to_display(value)),
+                    crate::eavto::Object::Iri(icon_iri) => {
+                        crate::owl::icon_iri_to_display(conn, icon_iri)
+                    }
+                    crate::eavto::Object::Literal { value, .. } => {
+                        Some(crate::owl::icon_literal_to_display(value))
+                    }
                     _ => None,
                 })
             });
 
-        Thing {
-            iri,
-            label,
-            icon,
-        }
+        Thing { iri, label, icon }
     }
 
     /// Batch-load metadata for multiple entities in a single SQL query.
@@ -62,9 +61,21 @@ impl Thing {
         let predicates = &[rdfs::LABEL, "foundation:hasIcon"];
         let rows = match query::get_predicates_for_subjects(conn, iris, predicates) {
             Ok(r) => r,
-            Err(_) => return iris.iter()
-                .map(|iri| (iri.clone(), Thing { iri: iri.clone(), label: iri.clone(), icon: None }))
-                .collect(),
+            Err(_) => {
+                return iris
+                    .iter()
+                    .map(|iri| {
+                        (
+                            iri.clone(),
+                            Thing {
+                                iri: iri.clone(),
+                                label: iri.clone(),
+                                icon: None,
+                            },
+                        )
+                    })
+                    .collect()
+            }
         };
 
         let mut raw: HashMap<String, RawMetadata> = HashMap::new();
@@ -75,37 +86,53 @@ impl Thing {
             });
             match predicate.as_str() {
                 p if p == rdfs::LABEL => {
-                    if entry.label.is_none() { entry.label = object.as_literal(); }
+                    if entry.label.is_none() {
+                        entry.label = object.as_literal();
+                    }
                 }
                 "foundation:hasIcon" => {
-                    if entry.has_icon.is_none() { entry.has_icon = Some(object); }
+                    if entry.has_icon.is_none() {
+                        entry.has_icon = Some(object);
+                    }
                 }
                 _ => {}
             }
         }
 
-        iris.iter().map(|iri| {
-            let metadata = raw.get(iri);
-            let label = metadata
-                .and_then(|m| m.label.clone())
-                .unwrap_or_else(|| iri.clone());
-            let icon = metadata
-                .and_then(|m| m.has_icon.as_ref())
-                .and_then(|obj| match obj {
-                    crate::eavto::Object::Iri(icon_iri) => crate::owl::icon_iri_to_display(conn, icon_iri),
-                    crate::eavto::Object::Literal { value, .. } =>
-                        Some(crate::owl::icon_literal_to_display(value)),
-                    _ => None,
-                });
-            (iri.clone(), Thing { iri: iri.clone(), label, icon })
-        }).collect()
+        iris.iter()
+            .map(|iri| {
+                let metadata = raw.get(iri);
+                let label = metadata
+                    .and_then(|m| m.label.clone())
+                    .unwrap_or_else(|| iri.clone());
+                let icon = metadata
+                    .and_then(|m| m.has_icon.as_ref())
+                    .and_then(|obj| match obj {
+                        crate::eavto::Object::Iri(icon_iri) => {
+                            crate::owl::icon_iri_to_display(conn, icon_iri)
+                        }
+                        crate::eavto::Object::Literal { value, .. } => {
+                            Some(crate::owl::icon_literal_to_display(value))
+                        }
+                        _ => None,
+                    });
+                (
+                    iri.clone(),
+                    Thing {
+                        iri: iri.clone(),
+                        label,
+                        icon,
+                    },
+                )
+            })
+            .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::eavto::{store, test_helpers::setup_test_db, Triple, Object};
+    use crate::eavto::{store, test_helpers::setup_test_db, Object, Triple};
     use crate::owl::vocabulary::rdfs;
 
     #[test]
@@ -129,13 +156,20 @@ mod tests {
     #[test]
     fn test_get_batch_returns_label_for_known_entity() {
         let mut conn = setup_test_db();
-        store::assert_triples(&mut conn, &[
-            Triple::new("foundation:MyEntity", rdfs::LABEL, Object::Literal {
-                value: "My Entity".to_string(),
-                datatype: Some("xsd:string".to_string()),
-                language: None,
-            }),
-        ], "test").unwrap();
+        store::assert_triples(
+            &mut conn,
+            &[Triple::new(
+                "foundation:MyEntity",
+                rdfs::LABEL,
+                Object::Literal {
+                    value: "My Entity".to_string(),
+                    datatype: Some("xsd:string".to_string()),
+                    language: None,
+                },
+            )],
+            "test",
+        )
+        .unwrap();
 
         let iris = vec!["foundation:MyEntity".to_string()];
         let result = Thing::get_batch(&conn, &iris);
@@ -147,18 +181,31 @@ mod tests {
     #[test]
     fn test_get_batch_returns_icon_literal() {
         let mut conn = setup_test_db();
-        store::assert_triples(&mut conn, &[
-            Triple::new("foundation:MyEntity", rdfs::LABEL, Object::Literal {
-                value: "My Entity".to_string(),
-                datatype: Some("xsd:string".to_string()),
-                language: None,
-            }),
-            Triple::new("foundation:MyEntity", "foundation:hasIcon", Object::Literal {
-                value: "https://example.com/icon.png".to_string(),
-                datatype: Some("xsd:string".to_string()),
-                language: None,
-            }),
-        ], "test").unwrap();
+        store::assert_triples(
+            &mut conn,
+            &[
+                Triple::new(
+                    "foundation:MyEntity",
+                    rdfs::LABEL,
+                    Object::Literal {
+                        value: "My Entity".to_string(),
+                        datatype: Some("xsd:string".to_string()),
+                        language: None,
+                    },
+                ),
+                Triple::new(
+                    "foundation:MyEntity",
+                    "foundation:hasIcon",
+                    Object::Literal {
+                        value: "https://example.com/icon.png".to_string(),
+                        datatype: Some("xsd:string".to_string()),
+                        language: None,
+                    },
+                ),
+            ],
+            "test",
+        )
+        .unwrap();
 
         let iris = vec!["foundation:MyEntity".to_string()];
         let result = Thing::get_batch(&conn, &iris);
@@ -169,18 +216,31 @@ mod tests {
     #[test]
     fn test_get_batch_loads_multiple_entities() {
         let mut conn = setup_test_db();
-        store::assert_triples(&mut conn, &[
-            Triple::new("foundation:EntityA", rdfs::LABEL, Object::Literal {
-                value: "Entity A".to_string(),
-                datatype: Some("xsd:string".to_string()),
-                language: None,
-            }),
-            Triple::new("foundation:EntityB", rdfs::LABEL, Object::Literal {
-                value: "Entity B".to_string(),
-                datatype: Some("xsd:string".to_string()),
-                language: None,
-            }),
-        ], "test").unwrap();
+        store::assert_triples(
+            &mut conn,
+            &[
+                Triple::new(
+                    "foundation:EntityA",
+                    rdfs::LABEL,
+                    Object::Literal {
+                        value: "Entity A".to_string(),
+                        datatype: Some("xsd:string".to_string()),
+                        language: None,
+                    },
+                ),
+                Triple::new(
+                    "foundation:EntityB",
+                    rdfs::LABEL,
+                    Object::Literal {
+                        value: "Entity B".to_string(),
+                        datatype: Some("xsd:string".to_string()),
+                        language: None,
+                    },
+                ),
+            ],
+            "test",
+        )
+        .unwrap();
 
         let iris = vec![
             "foundation:EntityA".to_string(),
@@ -195,13 +255,20 @@ mod tests {
     #[test]
     fn test_get_batch_mixed_known_and_unknown() {
         let mut conn = setup_test_db();
-        store::assert_triples(&mut conn, &[
-            Triple::new("foundation:Known", rdfs::LABEL, Object::Literal {
-                value: "Known Entity".to_string(),
-                datatype: Some("xsd:string".to_string()),
-                language: None,
-            }),
-        ], "test").unwrap();
+        store::assert_triples(
+            &mut conn,
+            &[Triple::new(
+                "foundation:Known",
+                rdfs::LABEL,
+                Object::Literal {
+                    value: "Known Entity".to_string(),
+                    datatype: Some("xsd:string".to_string()),
+                    language: None,
+                },
+            )],
+            "test",
+        )
+        .unwrap();
 
         let iris = vec![
             "foundation:Known".to_string(),
@@ -209,7 +276,13 @@ mod tests {
         ];
         let result = Thing::get_batch(&conn, &iris);
         assert_eq!(result.len(), 2);
-        assert_eq!(result.get("foundation:Known").unwrap().label, "Known Entity");
-        assert_eq!(result.get("foundation:Unknown").unwrap().label, "foundation:Unknown");
+        assert_eq!(
+            result.get("foundation:Known").unwrap().label,
+            "Known Entity"
+        );
+        assert_eq!(
+            result.get("foundation:Unknown").unwrap().label,
+            "foundation:Unknown"
+        );
     }
 }

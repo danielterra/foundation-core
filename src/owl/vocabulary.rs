@@ -236,7 +236,10 @@ mod tests {
 
     #[test]
     fn test_owl_inverse_functional_property() {
-        assert_eq!(owl::INVERSE_FUNCTIONAL_PROPERTY, "owl:InverseFunctionalProperty");
+        assert_eq!(
+            owl::INVERSE_FUNCTIONAL_PROPERTY,
+            "owl:InverseFunctionalProperty"
+        );
     }
 
     #[test]

@@ -2,7 +2,7 @@
 use rusqlite::Connection;
 
 #[cfg(any(test, feature = "test-helpers"))]
-use super::{Triple, Object};
+use super::{Object, Triple};
 
 #[cfg(any(test, feature = "test-helpers"))]
 pub fn setup_test_db() -> Connection {
@@ -67,8 +67,9 @@ pub fn setup_test_db() -> Connection {
 
         INSERT INTO origins (name, description) VALUES
             ('test', 'Test origin for unit tests');
-        "#
-    ).expect("Failed to create test schema");
+        "#,
+    )
+    .expect("Failed to create test schema");
 
     conn
 }
@@ -125,10 +126,6 @@ pub fn assert_triple_exists(conn: &Connection, subject: &str, predicate: &str) {
 
 #[cfg(any(test, feature = "test-helpers"))]
 pub fn get_active_triple_count(conn: &Connection) -> i64 {
-    conn.query_row(
-        "SELECT COUNT(*) FROM triples_current",
-        [],
-        |row| row.get(0),
-    )
-    .expect("Failed to count triples")
+    conn.query_row("SELECT COUNT(*) FROM triples_current", [], |row| row.get(0))
+        .expect("Failed to count triples")
 }

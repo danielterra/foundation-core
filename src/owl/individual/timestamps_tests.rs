@@ -1,11 +1,18 @@
 use super::{touch, LAST_UPDATED_AT};
 use crate::eavto::test_helpers::setup_test_db;
-use crate::eavto::{store, Triple, Object};
+use crate::eavto::{store, Object, Triple};
 
 fn seed_entity(conn: &mut rusqlite::Connection, iri: &str) {
-    store::assert_triples(conn, &[
-        Triple::new(iri, "rdf:type", Object::Iri("owl:NamedIndividual".to_string())),
-    ], "test").unwrap();
+    store::assert_triples(
+        conn,
+        &[Triple::new(
+            iri,
+            "rdf:type",
+            Object::Iri("owl:NamedIndividual".to_string()),
+        )],
+        "test",
+    )
+    .unwrap();
 }
 
 fn current_last_updated(conn: &rusqlite::Connection, iri: &str) -> Option<String> {
@@ -15,7 +22,8 @@ fn current_last_updated(conn: &rusqlite::Connection, iri: &str) -> Option<String
          WHERE subject = ? AND predicate = ?",
         rusqlite::params![iri, LAST_UPDATED_AT],
         |row| row.get(0),
-    ).ok()
+    )
+    .ok()
 }
 
 fn count_active_last_updated(conn: &rusqlite::Connection, iri: &str) -> i64 {
@@ -23,7 +31,8 @@ fn count_active_last_updated(conn: &rusqlite::Connection, iri: &str) -> i64 {
         "SELECT COUNT(*) FROM triples_current WHERE subject = ? AND predicate = ?",
         rusqlite::params![iri, LAST_UPDATED_AT],
         |row| row.get(0),
-    ).unwrap_or(0)
+    )
+    .unwrap_or(0)
 }
 
 // ── touch ────────────────────────────────────────────────────────────────────
@@ -54,7 +63,8 @@ fn test_touch_chamadas_sucessivas_avancam_valor() {
     assert!(
         second >= first,
         "segunda chamada deve avançar ou manter o timestamp: first={}, second={}",
-        first, second
+        first,
+        second
     );
 }
 
@@ -67,5 +77,8 @@ fn test_touch_nao_duplica_triplas_ativas() {
     touch(&mut conn, "test:NoDup");
 
     let active = count_active_last_updated(&conn, "test:NoDup");
-    assert_eq!(active, 1, "deve haver exatamente 1 tripla ativa para lastUpdatedAt (MAX(tx) vence)");
+    assert_eq!(
+        active, 1,
+        "deve haver exatamente 1 tripla ativa para lastUpdatedAt (MAX(tx) vence)"
+    );
 }

@@ -1,11 +1,11 @@
+use chrono::Utc;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
-use chrono::Utc;
 
 pub fn get_log_file_path() -> Result<PathBuf, String> {
-    let data_dir = dirs::data_local_dir()
-        .ok_or_else(|| "Failed to get app data directory".to_string())?;
+    let data_dir =
+        dirs::data_local_dir().ok_or_else(|| "Failed to get app data directory".to_string())?;
     let app_dir = data_dir.join(crate::paths::app_namespace());
     std::fs::create_dir_all(&app_dir)
         .map_err(|e| format!("Failed to create app data dir: {}", e))?;
@@ -20,7 +20,13 @@ fn write_log(source: &str, level: &str, message: &str) -> Result<(), String> {
         .open(&log_path)
         .map_err(|e| format!("Failed to open log file: {}", e))?;
     let timestamp = Utc::now().format("%Y-%m-%d %H:%M:%S%.3f UTC");
-    let log_line = format!("[{}] [{}] [{}] {}\n", timestamp, source, level.to_uppercase(), message);
+    let log_line = format!(
+        "[{}] [{}] [{}] {}\n",
+        timestamp,
+        source,
+        level.to_uppercase(),
+        message
+    );
     file.write_all(log_line.as_bytes())
         .map_err(|e| format!("Failed to write to log file: {}", e))?;
     Ok(())

@@ -1,7 +1,6 @@
 /// QueryResult Type
 ///
 /// Represents the result of a query operation
-
 use super::triple_type::Triple;
 
 /// Query result containing triples and metadata

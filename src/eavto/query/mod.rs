@@ -16,6 +16,19 @@ pub fn current_snapshot_tx(conn: &Connection) -> Result<i64> {
     )
 }
 
+/// Returns the registered provenance name for an EAVTO origin identifier.
+pub fn get_origin_name(conn: &Connection, origin_id: i64) -> Result<Option<String>> {
+    match conn.query_row(
+        "SELECT name FROM origins WHERE id = ?1",
+        [origin_id],
+        |row| row.get(0),
+    ) {
+        Ok(name) => Ok(Some(name)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(error) => Err(Box::new(error)),
+    }
+}
+
 use super::object_type::Object;
 use super::query_result_type::QueryResult;
 use super::triple_type::Triple;

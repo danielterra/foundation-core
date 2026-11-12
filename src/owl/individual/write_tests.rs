@@ -1286,6 +1286,260 @@ fn test_add_property_replaces_existing_values() {
     assert_eq!(result.triples[0].object.as_literal().unwrap(), "replaced");
 }
 
+#[test]
+fn test_replace_property_literals_replaces_complete_typed_set() {
+    let mut conn = setup_test_db();
+
+    let c = Class::new("foundation:Person");
+    c.assert(
+        &mut conn,
+        ClassType::OwlClass,
+        "Person",
+        "https://example.com/person.svg",
+        None,
+        "test",
+    )
+    .unwrap();
+    let prop = Property::new("foundation:score");
+    prop.assert(
+        &mut conn,
+        PropertyType::DatatypeProperty,
+        "score",
+        None,
+        &["foundation:Person"],
+        Some("xsd:date"),
+        None,
+        "test",
+    )
+    .unwrap();
+    let ind = Individual::new("foundation:alice");
+    ind.assert(
+        &mut conn,
+        "foundation:Person",
+        "Alice",
+        "https://example.com/person.svg",
+        "test",
+    )
+    .unwrap();
+
+    ind.add_property(
+        &mut conn,
+        "foundation:score",
+        vec![Object::Literal {
+            value: "2026-11-01".to_string(),
+            datatype: Some("xsd:date".to_string()),
+            language: None,
+        }],
+        "test",
+    )
+    .unwrap();
+    ind.replace_property_literals(
+        &mut conn,
+        "foundation:score",
+        vec![
+            Object::Literal {
+                value: "2026-11-07".to_string(),
+                datatype: Some("xsd:date".to_string()),
+                language: None,
+            },
+            Object::Literal {
+                value: "2026-11-08".to_string(),
+                datatype: Some("xsd:date".to_string()),
+                language: None,
+            },
+        ],
+        "test",
+    )
+    .unwrap();
+
+    let current =
+        crate::eavto::query::get_by_entity_predicate(&conn, "foundation:alice", "foundation:score")
+            .unwrap();
+    let values: Vec<_> = current
+        .triples
+        .iter()
+        .map(|triple| triple.object.as_literal().unwrap())
+        .collect();
+    assert_eq!(
+        values,
+        vec!["2026-11-07".to_string(), "2026-11-08".to_string()]
+    );
+}
+
+#[test]
+fn test_replace_property_literals_empty_set_clears_property() {
+    let mut conn = setup_test_db();
+    let c = Class::new("foundation:Person");
+    c.assert(
+        &mut conn,
+        ClassType::OwlClass,
+        "Person",
+        "https://example.com/person.svg",
+        None,
+        "test",
+    )
+    .unwrap();
+    let ind = Individual::new("foundation:alice");
+    ind.assert(
+        &mut conn,
+        "foundation:Person",
+        "Alice",
+        "https://example.com/person.svg",
+        "test",
+    )
+    .unwrap();
+    ind.add_property(
+        &mut conn,
+        "rdfs:comment",
+        vec![Object::Literal {
+            value: "first".to_string(),
+            datatype: Some("xsd:string".to_string()),
+            language: None,
+        }],
+        "test",
+    )
+    .unwrap();
+
+    ind.replace_property_literals(&mut conn, "rdfs:comment", vec![], "test")
+        .unwrap();
+
+    let current =
+        crate::eavto::query::get_by_entity_predicate(&conn, "foundation:alice", "rdfs:comment")
+            .unwrap();
+    assert!(current.triples.is_empty());
+}
+
+#[test]
+fn test_replace_property_literals_rejects_clearing_calculated_property() {
+    let mut conn = setup_test_db();
+    let class_iri = "foundation:Person";
+    let property_iri = "foundation:calculatedScore";
+    let individual_iri = "foundation:alice";
+
+    Class::new(class_iri)
+        .assert(
+            &mut conn,
+            ClassType::OwlClass,
+            "Person",
+            "https://example.com/person.svg",
+            None,
+            "test",
+        )
+        .unwrap();
+    Property::new(property_iri)
+        .assert(
+            &mut conn,
+            PropertyType::DatatypeProperty,
+            "calculated score",
+            None,
+            &[class_iri],
+            Some("xsd:string"),
+            None,
+            "test",
+        )
+        .unwrap();
+    let individual = Individual::new(individual_iri);
+    individual
+        .assert(
+            &mut conn,
+            class_iri,
+            "Alice",
+            "https://example.com/person.svg",
+            "test",
+        )
+        .unwrap();
+    store::assert_triples(
+        &mut conn,
+        &[
+            Triple::new(
+                property_iri,
+                "foundation:formula",
+                Object::Literal {
+                    value: "42".into(),
+                    datatype: Some("xsd:string".into()),
+                    language: None,
+                },
+            ),
+            Triple::new(
+                individual_iri,
+                property_iri,
+                Object::Literal {
+                    value: "42".into(),
+                    datatype: Some("xsd:string".into()),
+                    language: None,
+                },
+            ),
+        ],
+        "test",
+    )
+    .unwrap();
+
+    let result = individual.replace_property_literals(&mut conn, property_iri, vec![], "test");
+    assert!(matches!(
+        result,
+        Err(OwlError::ValidationError(message)) if message.contains("calculated via a formula")
+    ));
+
+    let current = query::get_by_entity_predicate(&conn, individual_iri, property_iri).unwrap();
+    assert_eq!(current.triples.len(), 1);
+    assert_eq!(
+        current.triples[0].object.as_literal().as_deref(),
+        Some("42")
+    );
+}
+
+#[test]
+fn test_replace_property_literals_rejects_iri_without_changing_current_set() {
+    let mut conn = setup_test_db();
+    let c = Class::new("foundation:Person");
+    c.assert(
+        &mut conn,
+        ClassType::OwlClass,
+        "Person",
+        "https://example.com/person.svg",
+        None,
+        "test",
+    )
+    .unwrap();
+    let ind = Individual::new("foundation:alice");
+    ind.assert(
+        &mut conn,
+        "foundation:Person",
+        "Alice",
+        "https://example.com/person.svg",
+        "test",
+    )
+    .unwrap();
+    ind.add_property(
+        &mut conn,
+        "rdfs:comment",
+        vec![Object::Literal {
+            value: "preserved".to_string(),
+            datatype: Some("xsd:string".to_string()),
+            language: None,
+        }],
+        "test",
+    )
+    .unwrap();
+
+    let result = ind.replace_property_literals(
+        &mut conn,
+        "rdfs:comment",
+        vec![Object::Iri("foundation:Person".to_string())],
+        "test",
+    );
+    assert!(result.is_err());
+
+    let current =
+        crate::eavto::query::get_by_entity_predicate(&conn, "foundation:alice", "rdfs:comment")
+            .unwrap();
+    assert_eq!(current.triples.len(), 1);
+    assert_eq!(
+        current.triples[0].object.as_literal().as_deref(),
+        Some("preserved")
+    );
+}
+
 // ── propertyType field in serializable_properties ────────────────────────────
 
 #[test]

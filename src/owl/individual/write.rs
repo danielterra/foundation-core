@@ -26,6 +26,27 @@ fn ensure_class_exists(conn: &Connection, class_iri: &str) -> Result<()> {
     }
 }
 
+fn ensure_property_is_not_derived(conn: &Connection, property: &str) -> Result<()> {
+    if property.starts_with("rdfs:") || property == "foundation:hasIcon" {
+        return Ok(());
+    }
+
+    for (metadata, description) in [
+        ("foundation:formula", "calculated via a formula"),
+        ("foundation:aggregation", "calculated via an aggregation"),
+        ("foundation:queryConfig", "a query property"),
+    ] {
+        if property_has_metadata(conn, property, metadata)? {
+            return Err(OwlError::ValidationError(format!(
+                "Property '{}' is {} and cannot be set directly",
+                property, description
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 impl Individual {
     /// Assert individual with required metadata (label and icon)
     /// This is the recommended way to create individuals
@@ -114,15 +135,7 @@ impl Individual {
         }
 
         let is_meta_property = property.starts_with("rdfs:") || property == "foundation:hasIcon";
-
-        if !is_meta_property {
-            if let Ok(true) = property_has_metadata(conn, property, "foundation:formula") {
-                return Err(OwlError::ValidationError(format!(
-                    "Property '{}' is calculated via a formula and cannot be set directly",
-                    property
-                )));
-            }
-        }
+        ensure_property_is_not_derived(conn, property)?;
         let t_formula = t0.elapsed().as_millis();
 
         let types_result = query::get_by_entity_predicate(conn, &self.iri, rdf::TYPE)?;
@@ -243,6 +256,37 @@ impl Individual {
         }
 
         Ok(())
+    }
+
+    /// Replace the complete literal value set for a property.
+    ///
+    /// Non-empty sets go through `add_property`, which validates each typed
+    /// literal and asserts the entire set in one EAVTO write transaction. An
+    /// empty set clears the property after checking its minimum cardinality.
+    /// This keeps multi-valued edits atomic: callers must submit the full set,
+    /// never a sequence of per-value additions/removals.
+    pub fn replace_property_literals(
+        &self,
+        conn: &mut Connection,
+        property: &str,
+        values: Vec<Object>,
+        origin: &str,
+    ) -> Result<()> {
+        if values.iter().any(|value| !value.is_literal()) {
+            return Err(OwlError::ValidationError(format!(
+                "Property '{}' can only be replaced with literal values",
+                property
+            )));
+        }
+
+        if values.is_empty() {
+            crate::owl::check_system_locked(conn, &self.iri, Some(property))?;
+            ensure_property_is_not_derived(conn, property)?;
+            crate::owl::cardinality::validate_property_cardinality(conn, &self.iri, property, 0)?;
+            return Self::clear_property(conn, &self.iri, property, origin);
+        }
+
+        self.add_property(conn, property, values, origin)
     }
 
     pub fn append_property(

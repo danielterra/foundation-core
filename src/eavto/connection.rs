@@ -180,7 +180,7 @@ where
     F: Fn(&str, serde_json::Value),
 {
     log_backend("info", &format!("Using database: {:?}", db_path));
-    let conn = Connection::open(db_path)?;
+    let mut conn = Connection::open(db_path)?;
     conn.execute_batch(
         "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA journal_size_limit=33554432;",
     )?;
@@ -231,6 +231,16 @@ where
     let t_startup = std::time::Instant::now();
 
     run_migrations(&conn)?;
+    let overlay_summary = crate::semantic_catalog_overlay::sync(&mut conn).map_err(|error| {
+        DbError::SchemaError(format!("Semantic catalog overlay sync failed: {error}"))
+    })?;
+    log_backend(
+        "info",
+        &format!(
+            "[STARTUP] semantic_catalog_overlay manifest={} triples={} changed={}",
+            overlay_summary.manifest_version, overlay_summary.triple_count, overlay_summary.changed
+        ),
+    );
     ensure_query_stats(&conn);
     log_backend(
         "info",
@@ -606,6 +616,7 @@ pub fn get_connection() -> Result<Connection, DbError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::eavto::{store, Object, Triple};
     use tempfile::TempDir;
 
     #[test]
@@ -674,6 +685,178 @@ mod tests {
             .expect("Failed to query tables");
 
         assert!(count > 0, "Initialized database should have tables");
+    }
+
+    #[test]
+    fn initialize_db_syncs_semantic_catalog_idempotently_for_existing_database() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let db_path = temp_dir.path().join("existing-ontology.db");
+        {
+            let mut conn = Connection::open(&db_path).expect("Failed to create fixture DB");
+            create_schema(&conn).expect("Failed to create disposable schema");
+            store::assert_triples(
+                &mut conn,
+                &[
+                    Triple::new(
+                        "foundation:Person",
+                        "rdf:type",
+                        Object::Iri("owl:Class".into()),
+                    ),
+                    Triple::new(
+                        "foundation:SemanticComponentDefinition",
+                        "rdf:type",
+                        Object::Iri("owl:Class".into()),
+                    ),
+                    Triple::new(
+                        "foundation:SemanticComponentDefinition",
+                        "rdfs:label",
+                        Object::Literal {
+                            value: "Historical Catalog Label".into(),
+                            datatype: Some("xsd:string".into()),
+                            language: None,
+                        },
+                    ),
+                    Triple::new(
+                        "foundation:SemanticComponentDefinition_Action_v1",
+                        "rdf:type",
+                        Object::Iri("foundation:SemanticComponentDefinition".into()),
+                    ),
+                    Triple::new(
+                        "foundation:SemanticComponentDefinition_Action_v1",
+                        "foundation:componentContractVersion",
+                        Object::Literal {
+                            value: "legacy-version".into(),
+                            datatype: Some("xsd:string".into()),
+                            language: None,
+                        },
+                    ),
+                    Triple::new(
+                        "foundation:SemanticComponentDefinition_Action_v1",
+                        "foundation:componentManifestVersion",
+                        Object::Literal {
+                            value: "999".into(),
+                            datatype: Some("xsd:string".into()),
+                            language: None,
+                        },
+                    ),
+                    Triple::new(
+                        "foundation:SemanticComponentDefinition_Action_v1",
+                        "foundation:componentContractHash",
+                        Object::Literal {
+                            value: "sha256:legacy-hash".into(),
+                            datatype: Some("xsd:string".into()),
+                            language: None,
+                        },
+                    ),
+                    Triple::new(
+                        "foundation:SemanticComponentDefinition_Action_v1",
+                        "foundation:componentPropsSchema",
+                        Object::Literal {
+                            value: "{\"legacy\":true}".into(),
+                            datatype: Some("xsd:string".into()),
+                            language: None,
+                        },
+                    ),
+                ],
+                "test_fixture",
+            )
+            .expect("Failed to mark disposable DB as already seeded");
+        }
+
+        let conn = initialize_db(&db_path).expect("Startup should sync the semantic overlay");
+        let catalog_contracts: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM triples_current
+                 WHERE predicate = 'rdf:type'
+                   AND object = 'foundation:SemanticComponentDefinition'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to count catalog contracts");
+        assert_eq!(catalog_contracts, 11);
+        let preserved_contract_facts: Vec<(String, String)> = conn
+            .prepare(
+                "SELECT predicate, object_value FROM triples_current
+                 WHERE subject = 'foundation:SemanticComponentDefinition_Action_v1'
+                   AND predicate IN (
+                     'foundation:componentContractVersion',
+                     'foundation:componentManifestVersion',
+                     'foundation:componentContractHash',
+                     'foundation:componentPropsSchema'
+                   ) ORDER BY predicate",
+            )
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            preserved_contract_facts,
+            vec![
+                (
+                    "foundation:componentContractHash".into(),
+                    "sha256:legacy-hash".into()
+                ),
+                (
+                    "foundation:componentContractVersion".into(),
+                    "legacy-version".into()
+                ),
+                ("foundation:componentManifestVersion".into(), "999".into()),
+                (
+                    "foundation:componentPropsSchema".into(),
+                    "{\"legacy\":true}".into()
+                ),
+            ]
+        );
+        let catalog_label: String = conn
+            .query_row(
+                "SELECT object_value FROM triples_current
+                 WHERE subject = 'foundation:SemanticComponentDefinition'
+                   AND predicate = 'rdfs:label'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("The existing catalog class label should be preserved");
+        assert_eq!(catalog_label, "Historical Catalog Label");
+        drop(conn);
+
+        let mut conn = Connection::open(&db_path).expect("Failed to reopen fixture DB");
+        store::assert_triples(
+            &mut conn,
+            &[Triple::new(
+                "foundation:LocalSentinel",
+                "foundation:sentinelValue",
+                Object::Literal {
+                    value: "preserve-me".into(),
+                    datatype: Some("xsd:string".into()),
+                    language: None,
+                },
+            )],
+            "test_fixture",
+        )
+        .expect("Failed to write disposable sentinel");
+        drop(conn);
+
+        let count_before: i64 = Connection::open(&db_path)
+            .unwrap()
+            .query_row("SELECT COUNT(*) FROM triples_current", [], |row| row.get(0))
+            .unwrap();
+        let conn = initialize_db(&db_path).expect("Repeated startup should stay successful");
+        let count_after: i64 = conn
+            .query_row("SELECT COUNT(*) FROM triples_current", [], |row| row.get(0))
+            .unwrap();
+        let sentinel: String = conn
+            .query_row(
+                "SELECT object_value FROM triples_current
+                 WHERE subject = 'foundation:LocalSentinel'
+                   AND predicate = 'foundation:sentinelValue'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(count_after, count_before);
+        assert_eq!(sentinel, "preserve-me");
     }
 
     #[test]

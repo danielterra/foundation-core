@@ -1,0 +1,68 @@
+@prefix foundation: <http://foundation.local/ontology/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Curated vocabulary for the semantic JSON widget catalog. This source contains
+# schema only; renderer contract individuals are generated separately from the
+# actual semantic renderer manifest. It intentionally contains no local data.
+
+foundation:SemanticComponentDefinition a owl:Class ;
+    rdfs:label "Semantic Component Definition" ;
+    rdfs:subClassOf foundation:AbstractContinuant .
+
+foundation:componentId a owl:DatatypeProperty ;
+    rdfs:domain foundation:SemanticComponentDefinition ;
+    rdfs:range xsd:string ;
+    rdfs:label "Component ID" .
+
+foundation:componentIntent a owl:DatatypeProperty ;
+    rdfs:domain foundation:SemanticComponentDefinition ;
+    rdfs:range xsd:string ;
+    rdfs:label "Component Intent" .
+
+foundation:componentPropsSchema a owl:DatatypeProperty ;
+    rdfs:domain foundation:SemanticComponentDefinition ;
+    rdfs:range xsd:string ;
+    rdfs:label "Component Props Schema" .
+
+foundation:componentActionsSchema a owl:DatatypeProperty ;
+    rdfs:domain foundation:SemanticComponentDefinition ;
+    rdfs:range xsd:string ;
+    rdfs:label "Component Actions Schema" .
+
+foundation:componentExamples a owl:DatatypeProperty ;
+    rdfs:domain foundation:SemanticComponentDefinition ;
+    rdfs:range xsd:string ;
+    rdfs:label "Component Examples" .
+
+foundation:componentContractVersion a owl:DatatypeProperty ;
+    rdfs:domain foundation:SemanticComponentDefinition ;
+    rdfs:range xsd:string ;
+    rdfs:label "Component Contract Version" .
+
+foundation:componentContractHash a owl:DatatypeProperty ;
+    rdfs:domain foundation:SemanticComponentDefinition ;
+    rdfs:range xsd:string ;
+    rdfs:label "Component Contract Hash" .
+
+foundation:componentManifestVersion a owl:DatatypeProperty ;
+    rdfs:domain foundation:SemanticComponentDefinition ;
+    rdfs:range xsd:string ;
+    rdfs:label "Component Manifest Version" .
+
+foundation:usesComponentContract a owl:ObjectProperty ;
+    rdfs:domain foundation:JsonRenderSpec ;
+    rdfs:range foundation:SemanticComponentDefinition ;
+    rdfs:label "Uses Component Contract" .
+
+foundation:rendersEntity a owl:ObjectProperty ;
+    rdfs:domain foundation:JsonRenderSpec ;
+    rdfs:range owl:Thing ;
+    rdfs:label "Renders Entity" .
+
+foundation:defaultWidgetSpec a owl:ObjectProperty ;
+    rdfs:domain owl:Class ;
+    rdfs:range foundation:JsonRenderSpec ;
+    rdfs:label "Default Widget Specification" .

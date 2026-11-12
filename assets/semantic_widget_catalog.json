@@ -1,0 +1,1180 @@
+{
+  "formatVersion": 1,
+  "manifestVersion": 2,
+  "triples": [
+    {
+      "subject": "foundation:CoreOntologyRegistry",
+      "predicate": "foundation:includesIndividual",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition_Action_v1"
+      }
+    },
+    {
+      "subject": "foundation:CoreOntologyRegistry",
+      "predicate": "foundation:includesIndividual",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition_Confirmation_v1"
+      }
+    },
+    {
+      "subject": "foundation:CoreOntologyRegistry",
+      "predicate": "foundation:includesIndividual",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition_Decision_v1"
+      }
+    },
+    {
+      "subject": "foundation:CoreOntologyRegistry",
+      "predicate": "foundation:includesIndividual",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition_Details_v2"
+      }
+    },
+    {
+      "subject": "foundation:CoreOntologyRegistry",
+      "predicate": "foundation:includesIndividual",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition_Information_v4"
+      }
+    },
+    {
+      "subject": "foundation:CoreOntologyRegistry",
+      "predicate": "foundation:includesIndividual",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition_ValueEntry_v2"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Action_v1",
+      "predicate": "foundation:componentActionsSchema",
+      "object": {
+        "type": "literal",
+        "value": "[{\"description\":\"Apresenta uma mensagem local no widget.\",\"id\":\"announce\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"message\":{\"maxLength\":500,\"type\":\"string\"}},\"required\":[\"message\"],\"type\":\"object\"}},{\"description\":\"Executa uma ação local explicitamente conectada pelo widget.\",\"id\":\"perform\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}},{\"description\":\"Atualiza estado local do widget.\",\"id\":\"setState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Adiciona valor ao estado local do widget.\",\"id\":\"pushState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Remove valor do estado local do widget.\",\"id\":\"removeState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"index\":{\"type\":\"number\"},\"statePath\":{\"type\":\"string\"}},\"required\":[\"statePath\",\"index\"],\"type\":\"object\"}},{\"description\":\"Valida formulário local.\",\"id\":\"validateForm\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"formPath\":{\"type\":\"string\"}},\"required\":[\"formPath\"],\"type\":\"object\"}}]",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Action_v1",
+      "predicate": "foundation:componentContractHash",
+      "object": {
+        "type": "literal",
+        "value": "sha256:ac770c44f28765d3077ad762f2faaf00a459d1c559fe1035aaae15df85103eb8",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Action_v1",
+      "predicate": "foundation:componentContractVersion",
+      "object": {
+        "type": "literal",
+        "value": "1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Action_v1",
+      "predicate": "foundation:componentExamples",
+      "object": {
+        "type": "literal",
+        "value": "{\"elements\":{\"sync\":{\"children\":[],\"on\":{\"press\":{\"action\":\"announce\",\"params\":{\"message\":\"A sincronização foi solicitada.\"}}},\"props\":{\"available\":true,\"frequency\":\"occasional\",\"icon\":\"sync\",\"label\":\"Sincronizar agora\",\"objective\":\"Buscar novos dados da conta.\",\"priority\":\"primary\"},\"type\":\"Action\"}},\"root\":\"sync\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Action_v1",
+      "predicate": "foundation:componentId",
+      "object": {
+        "type": "literal",
+        "value": "Action",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Action_v1",
+      "predicate": "foundation:componentIntent",
+      "object": {
+        "type": "literal",
+        "value": "Expõe uma ação de acordo com sua prioridade, frequência, impacto, disponibilidade e resultado.",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Action_v1",
+      "predicate": "foundation:componentManifestVersion",
+      "object": {
+        "type": "literal",
+        "value": "2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Action_v1",
+      "predicate": "foundation:componentPropsSchema",
+      "object": {
+        "type": "literal",
+        "value": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"available\":{\"type\":\"boolean\"},\"frequency\":{\"enum\":[\"routine\",\"occasional\",\"rare\"],\"type\":\"string\"},\"icon\":{\"type\":\"string\"},\"impact\":{\"type\":\"string\"},\"label\":{\"type\":\"string\"},\"objective\":{\"type\":\"string\"},\"priority\":{\"enum\":[\"primary\",\"supporting\",\"destructive\"],\"type\":\"string\"},\"progress\":{\"type\":\"string\"},\"result\":{\"type\":\"string\"},\"reversibility\":{\"enum\":[\"reversible\",\"hard_to_reverse\",\"irreversible\"],\"type\":\"string\"}},\"required\":[\"label\",\"icon\"],\"type\":\"object\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Action_v1",
+      "predicate": "foundation:hasStatus",
+      "object": {
+        "type": "iri",
+        "value": "foundation:Status_1781300928499"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Action_v1",
+      "predicate": "rdf:type",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Action_v1",
+      "predicate": "rdfs:label",
+      "object": {
+        "type": "literal",
+        "value": "Action v1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Confirmation_v1",
+      "predicate": "foundation:componentActionsSchema",
+      "object": {
+        "type": "literal",
+        "value": "[{\"description\":\"Apresenta uma mensagem local no widget.\",\"id\":\"announce\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"message\":{\"maxLength\":500,\"type\":\"string\"}},\"required\":[\"message\"],\"type\":\"object\"}},{\"description\":\"Executa uma ação local explicitamente conectada pelo widget.\",\"id\":\"perform\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}},{\"description\":\"Atualiza estado local do widget.\",\"id\":\"setState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Adiciona valor ao estado local do widget.\",\"id\":\"pushState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Remove valor do estado local do widget.\",\"id\":\"removeState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"index\":{\"type\":\"number\"},\"statePath\":{\"type\":\"string\"}},\"required\":[\"statePath\",\"index\"],\"type\":\"object\"}},{\"description\":\"Valida formulário local.\",\"id\":\"validateForm\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"formPath\":{\"type\":\"string\"}},\"required\":[\"formPath\"],\"type\":\"object\"}}]",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Confirmation_v1",
+      "predicate": "foundation:componentContractHash",
+      "object": {
+        "type": "literal",
+        "value": "sha256:f9bf93eb2ed1ae825d01279f1cba0a9aedb65040c19b491070d0dd9b6c351d8e",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Confirmation_v1",
+      "predicate": "foundation:componentContractVersion",
+      "object": {
+        "type": "literal",
+        "value": "1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Confirmation_v1",
+      "predicate": "foundation:componentExamples",
+      "object": {
+        "type": "literal",
+        "value": "{\"elements\":{\"delete\":{\"children\":[],\"on\":{\"cancel\":{\"action\":\"announce\",\"params\":{\"message\":\"Confirmação cancelada sem alterar dados.\"}},\"confirm\":{\"action\":\"announce\",\"params\":{\"message\":\"Consequência confirmada no preview local.\"}}},\"props\":{\"action\":\"Excluir esta entidade\",\"consequence\":\"Os dados vinculados serão removidos.\",\"impact\":\"A ação não pode ser desfeita.\",\"reversibility\":\"irreversible\"},\"type\":\"Confirmation\"}},\"root\":\"delete\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Confirmation_v1",
+      "predicate": "foundation:componentId",
+      "object": {
+        "type": "literal",
+        "value": "Confirmation",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Confirmation_v1",
+      "predicate": "foundation:componentIntent",
+      "object": {
+        "type": "literal",
+        "value": "Torna explícita a consequência antes de confirmar ou cancelar uma ação.",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Confirmation_v1",
+      "predicate": "foundation:componentManifestVersion",
+      "object": {
+        "type": "literal",
+        "value": "2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Confirmation_v1",
+      "predicate": "foundation:componentPropsSchema",
+      "object": {
+        "type": "literal",
+        "value": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"action\":{\"type\":\"string\"},\"cancelLabel\":{\"type\":\"string\"},\"confirmLabel\":{\"type\":\"string\"},\"consequence\":{\"type\":\"string\"},\"impact\":{\"type\":\"string\"},\"requiresConfirmation\":{\"default\":true,\"type\":\"boolean\"},\"reversibility\":{\"enum\":[\"reversible\",\"hard_to_reverse\",\"irreversible\"],\"type\":\"string\"}},\"required\":[\"action\",\"consequence\",\"reversibility\",\"requiresConfirmation\"],\"type\":\"object\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Confirmation_v1",
+      "predicate": "foundation:hasStatus",
+      "object": {
+        "type": "iri",
+        "value": "foundation:Status_1781300928499"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Confirmation_v1",
+      "predicate": "rdf:type",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Confirmation_v1",
+      "predicate": "rdfs:label",
+      "object": {
+        "type": "literal",
+        "value": "Confirmation v1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Decision_v1",
+      "predicate": "foundation:componentActionsSchema",
+      "object": {
+        "type": "literal",
+        "value": "[{\"description\":\"Apresenta uma mensagem local no widget.\",\"id\":\"announce\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"message\":{\"maxLength\":500,\"type\":\"string\"}},\"required\":[\"message\"],\"type\":\"object\"}},{\"description\":\"Executa uma ação local explicitamente conectada pelo widget.\",\"id\":\"perform\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}},{\"description\":\"Atualiza estado local do widget.\",\"id\":\"setState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Adiciona valor ao estado local do widget.\",\"id\":\"pushState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Remove valor do estado local do widget.\",\"id\":\"removeState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"index\":{\"type\":\"number\"},\"statePath\":{\"type\":\"string\"}},\"required\":[\"statePath\",\"index\"],\"type\":\"object\"}},{\"description\":\"Valida formulário local.\",\"id\":\"validateForm\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"formPath\":{\"type\":\"string\"}},\"required\":[\"formPath\"],\"type\":\"object\"}}]",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Decision_v1",
+      "predicate": "foundation:componentContractHash",
+      "object": {
+        "type": "literal",
+        "value": "sha256:24ff8da1b2b90d74511ce13e666cdcaa175a538db346dfeb6117c72873d3efc3",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Decision_v1",
+      "predicate": "foundation:componentContractVersion",
+      "object": {
+        "type": "literal",
+        "value": "1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Decision_v1",
+      "predicate": "foundation:componentExamples",
+      "object": {
+        "type": "literal",
+        "value": "{\"elements\":{\"model-choice\":{\"children\":[],\"props\":{\"candidates\":[{\"comparison\":{\"Contexto\":\"Médio\",\"Preço\":\"Baixo\"},\"description\":\"Responde depressa\",\"title\":\"Rápido\",\"value\":\"fast\"},{\"comparison\":{\"Contexto\":\"Alto\",\"Preço\":\"Médio\"},\"description\":\"Bom para análise\",\"title\":\"Mais capaz\",\"value\":\"capable\"}],\"comparisonFactors\":[\"Preço\",\"Contexto\"],\"complexity\":\"complex\",\"consequence\":\"Usado nas próximas conversas.\",\"description\":\"Escolha pelo uso e pelos fatores de comparação.\",\"selected\":{\"$bindState\":\"/selectedModel\"},\"selectionMode\":\"single\",\"title\":\"Modelo de IA\"},\"type\":\"Decision\"}},\"root\":\"model-choice\",\"state\":{\"selectedModel\":\"capable\"}}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Decision_v1",
+      "predicate": "foundation:componentId",
+      "object": {
+        "type": "literal",
+        "value": "Decision",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Decision_v1",
+      "predicate": "foundation:componentIntent",
+      "object": {
+        "type": "literal",
+        "value": "Ajuda a escolher uma ou mais alternativas pelo domínio, volume, complexidade e fatores de comparação.",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Decision_v1",
+      "predicate": "foundation:componentManifestVersion",
+      "object": {
+        "type": "literal",
+        "value": "2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Decision_v1",
+      "predicate": "foundation:componentPropsSchema",
+      "object": {
+        "type": "literal",
+        "value": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"candidates\":{\"items\":{\"additionalProperties\":false,\"properties\":{\"comparison\":{\"additionalProperties\":{\"type\":\"string\"},\"propertyNames\":{\"type\":\"string\"},\"type\":\"object\"},\"description\":{\"type\":\"string\"},\"disabled\":{\"type\":\"boolean\"},\"title\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"value\",\"title\"],\"type\":\"object\"},\"minItems\":1,\"type\":\"array\"},\"comparisonFactors\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"complexity\":{\"enum\":[\"simple\",\"complex\"],\"type\":\"string\"},\"consequence\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"domain\":{\"type\":\"string\"},\"groupName\":{\"type\":\"string\"},\"reversibility\":{\"enum\":[\"reversible\",\"hard_to_reverse\",\"irreversible\"],\"type\":\"string\"},\"selected\":{\"anyOf\":[{\"type\":\"string\"},{\"items\":{\"type\":\"string\"},\"type\":\"array\"}]},\"selectionMode\":{\"enum\":[\"single\",\"multiple\"],\"type\":\"string\"},\"title\":{\"type\":\"string\"}},\"required\":[\"title\",\"selectionMode\",\"complexity\",\"candidates\"],\"type\":\"object\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Decision_v1",
+      "predicate": "foundation:hasStatus",
+      "object": {
+        "type": "iri",
+        "value": "foundation:Status_1781300928499"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Decision_v1",
+      "predicate": "rdf:type",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Decision_v1",
+      "predicate": "rdfs:label",
+      "object": {
+        "type": "literal",
+        "value": "Decision v1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v1",
+      "predicate": "foundation:componentActionsSchema",
+      "object": {
+        "type": "literal",
+        "value": "[{\"description\":\"Apresenta uma mensagem local no widget.\",\"id\":\"announce\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"message\":{\"maxLength\":500,\"type\":\"string\"}},\"required\":[\"message\"],\"type\":\"object\"}},{\"description\":\"Executa uma ação local explicitamente conectada pelo widget.\",\"id\":\"perform\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}},{\"description\":\"Atualiza estado local do widget.\",\"id\":\"setState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Adiciona valor ao estado local do widget.\",\"id\":\"pushState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Remove valor do estado local do widget.\",\"id\":\"removeState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"index\":{\"type\":\"number\"},\"statePath\":{\"type\":\"string\"}},\"required\":[\"statePath\",\"index\"],\"type\":\"object\"}},{\"description\":\"Valida formulário local.\",\"id\":\"validateForm\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"formPath\":{\"type\":\"string\"}},\"required\":[\"formPath\"],\"type\":\"object\"}}]",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v1",
+      "predicate": "foundation:componentContractHash",
+      "object": {
+        "type": "literal",
+        "value": "sha256:ff7eeb5ac4093c709f5dea9c22ae1dbc84705fb12be398d1c1335443ca1b4a6c",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v1",
+      "predicate": "foundation:componentContractVersion",
+      "object": {
+        "type": "literal",
+        "value": "1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v1",
+      "predicate": "foundation:componentExamples",
+      "object": {
+        "type": "literal",
+        "value": "{\"elements\":{\"transaction\":{\"children\":[],\"props\":{\"details\":[{\"label\":\"Data\",\"value\":\"05/11/2026\"},{\"label\":\"Valor\",\"value\":\"R$ 82,40\"}],\"relevance\":\"Detalhes para conferência\",\"summary\":\"Compra no mercado\",\"title\":\"Transação\"},\"type\":\"Details\"}},\"root\":\"transaction\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v1",
+      "predicate": "foundation:componentId",
+      "object": {
+        "type": "literal",
+        "value": "Details",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v1",
+      "predicate": "foundation:componentIntent",
+      "object": {
+        "type": "literal",
+        "value": "Revela informação complementar sob demanda sem perder o resumo e o contexto.",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v1",
+      "predicate": "foundation:componentManifestVersion",
+      "object": {
+        "type": "literal",
+        "value": "1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v1",
+      "predicate": "foundation:componentPropsSchema",
+      "object": {
+        "type": "literal",
+        "value": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"details\":{\"items\":{\"additionalProperties\":false,\"properties\":{\"label\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"label\",\"value\"],\"type\":\"object\"},\"minItems\":1,\"type\":\"array\"},\"initiallyExpanded\":{\"type\":\"boolean\"},\"relevance\":{\"type\":\"string\"},\"summary\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"}},\"required\":[\"title\",\"details\"],\"type\":\"object\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v1",
+      "predicate": "rdf:type",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v1",
+      "predicate": "rdfs:label",
+      "object": {
+        "type": "literal",
+        "value": "Details v1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v2",
+      "predicate": "foundation:componentActionsSchema",
+      "object": {
+        "type": "literal",
+        "value": "[{\"description\":\"Apresenta uma mensagem local no widget.\",\"id\":\"announce\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"message\":{\"maxLength\":500,\"type\":\"string\"}},\"required\":[\"message\"],\"type\":\"object\"}},{\"description\":\"Executa uma ação local explicitamente conectada pelo widget.\",\"id\":\"perform\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}},{\"description\":\"Atualiza estado local do widget.\",\"id\":\"setState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Adiciona valor ao estado local do widget.\",\"id\":\"pushState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Remove valor do estado local do widget.\",\"id\":\"removeState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"index\":{\"type\":\"number\"},\"statePath\":{\"type\":\"string\"}},\"required\":[\"statePath\",\"index\"],\"type\":\"object\"}},{\"description\":\"Valida formulário local.\",\"id\":\"validateForm\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"formPath\":{\"type\":\"string\"}},\"required\":[\"formPath\"],\"type\":\"object\"}}]",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v2",
+      "predicate": "foundation:componentContractHash",
+      "object": {
+        "type": "literal",
+        "value": "sha256:b2063f2ddda1eba7a7a7e03d3dc57650134be88b10f148f7f07faad42ae0c5df",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v2",
+      "predicate": "foundation:componentContractVersion",
+      "object": {
+        "type": "literal",
+        "value": "2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v2",
+      "predicate": "foundation:componentExamples",
+      "object": {
+        "type": "literal",
+        "value": "{\"elements\":{\"transaction\":{\"children\":[],\"props\":{\"details\":[{\"label\":\"Data\",\"value\":\"05/11/2026\"},{\"label\":\"Valor\",\"value\":\"R$ 82,40\"}],\"relevance\":\"Detalhes para conferência\",\"summary\":\"Compra no mercado\",\"title\":\"Transação\"},\"type\":\"Details\"}},\"root\":\"transaction\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v2",
+      "predicate": "foundation:componentId",
+      "object": {
+        "type": "literal",
+        "value": "Details",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v2",
+      "predicate": "foundation:componentIntent",
+      "object": {
+        "type": "literal",
+        "value": "Revela informação complementar sob demanda sem perder o resumo e o contexto.",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v2",
+      "predicate": "foundation:componentManifestVersion",
+      "object": {
+        "type": "literal",
+        "value": "2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v2",
+      "predicate": "foundation:componentPropsSchema",
+      "object": {
+        "type": "literal",
+        "value": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"details\":{\"items\":{\"additionalProperties\":false,\"properties\":{\"label\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"label\",\"value\"],\"type\":\"object\"},\"type\":\"array\"},\"initiallyExpanded\":{\"type\":\"boolean\"},\"relevance\":{\"type\":\"string\"},\"summary\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"}},\"required\":[\"title\"],\"type\":\"object\",\"x-foundation-element-bindings\":{\"additionalProperties\":false,\"description\":\"Bindings declarados no elemento JSON, ao lado de type/props. O valor é lido da entidade em foundation:rendersEntity e nunca copiado para specSource.\",\"properties\":{\"details\":{\"additionalProperties\":false,\"properties\":{\"propertyIri\":{\"description\":\"IRI da propriedade da ontologia lida no runtime.\",\"minLength\":1,\"type\":\"string\"},\"source\":{\"const\":\"entity\",\"description\":\"Lê da entidade declarada em foundation:rendersEntity.\",\"type\":\"string\"}},\"required\":[\"source\",\"propertyIri\"],\"type\":\"object\"}},\"type\":\"object\"}}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v2",
+      "predicate": "foundation:hasStatus",
+      "object": {
+        "type": "iri",
+        "value": "foundation:Status_1781300928499"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v2",
+      "predicate": "rdf:type",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Details_v2",
+      "predicate": "rdfs:label",
+      "object": {
+        "type": "literal",
+        "value": "Details v2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v1",
+      "predicate": "foundation:componentActionsSchema",
+      "object": {
+        "type": "literal",
+        "value": "[{\"description\":\"Apresenta uma mensagem local no widget.\",\"id\":\"announce\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"message\":{\"maxLength\":500,\"type\":\"string\"}},\"required\":[\"message\"],\"type\":\"object\"}},{\"description\":\"Executa uma ação local explicitamente conectada pelo widget.\",\"id\":\"perform\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}},{\"description\":\"Atualiza estado local do widget.\",\"id\":\"setState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Adiciona valor ao estado local do widget.\",\"id\":\"pushState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Remove valor do estado local do widget.\",\"id\":\"removeState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"index\":{\"type\":\"number\"},\"statePath\":{\"type\":\"string\"}},\"required\":[\"statePath\",\"index\"],\"type\":\"object\"}},{\"description\":\"Valida formulário local.\",\"id\":\"validateForm\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"formPath\":{\"type\":\"string\"}},\"required\":[\"formPath\"],\"type\":\"object\"}}]",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v1",
+      "predicate": "foundation:componentContractHash",
+      "object": {
+        "type": "literal",
+        "value": "sha256:1d824c2617eb39c7788f5d1a51bafa707bb25f7a9eb1bf0e804b220bd0a07d6d",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v1",
+      "predicate": "foundation:componentContractVersion",
+      "object": {
+        "type": "literal",
+        "value": "1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v1",
+      "predicate": "foundation:componentExamples",
+      "object": {
+        "type": "literal",
+        "value": "{\"elements\":{\"account\":{\"children\":[],\"props\":{\"facts\":[{\"label\":\"Última sincronização\",\"value\":\"Hoje, 10:30\"}],\"priority\":\"primary\",\"relationships\":[{\"label\":\"Instituição\",\"value\":\"Banco local\"}],\"status\":\"Conectada\",\"summary\":\"Dados sincronizados recentemente.\",\"title\":\"Conta principal\",\"urgency\":\"routine\"},\"type\":\"Information\"}},\"root\":\"account\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v1",
+      "predicate": "foundation:componentId",
+      "object": {
+        "type": "literal",
+        "value": "Information",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v1",
+      "predicate": "foundation:componentIntent",
+      "object": {
+        "type": "literal",
+        "value": "Organiza fatos, estado e relações para facilitar a compreensão no contexto atual.",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v1",
+      "predicate": "foundation:componentManifestVersion",
+      "object": {
+        "type": "literal",
+        "value": "1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v1",
+      "predicate": "foundation:componentPropsSchema",
+      "object": {
+        "type": "literal",
+        "value": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"facts\":{\"items\":{\"additionalProperties\":false,\"properties\":{\"label\":{\"type\":\"string\"},\"unit\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"label\",\"value\"],\"type\":\"object\"},\"type\":\"array\"},\"priority\":{\"enum\":[\"primary\",\"supporting\",\"supplemental\"],\"type\":\"string\"},\"relationships\":{\"items\":{\"additionalProperties\":false,\"properties\":{\"label\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"label\",\"value\"],\"type\":\"object\"},\"type\":\"array\"},\"role\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"summary\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"urgency\":{\"enum\":[\"routine\",\"attention\",\"urgent\"],\"type\":\"string\"}},\"required\":[\"title\"],\"type\":\"object\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v1",
+      "predicate": "rdf:type",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v1",
+      "predicate": "rdfs:label",
+      "object": {
+        "type": "literal",
+        "value": "Information v1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v2",
+      "predicate": "foundation:componentActionsSchema",
+      "object": {
+        "type": "literal",
+        "value": "[{\"description\":\"Apresenta uma mensagem local no widget.\",\"id\":\"announce\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"message\":{\"maxLength\":500,\"type\":\"string\"}},\"required\":[\"message\"],\"type\":\"object\"}},{\"description\":\"Executa uma ação local explicitamente conectada pelo widget.\",\"id\":\"perform\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}},{\"description\":\"Atualiza estado local do widget.\",\"id\":\"setState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Adiciona valor ao estado local do widget.\",\"id\":\"pushState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Remove valor do estado local do widget.\",\"id\":\"removeState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"index\":{\"type\":\"number\"},\"statePath\":{\"type\":\"string\"}},\"required\":[\"statePath\",\"index\"],\"type\":\"object\"}},{\"description\":\"Valida formulário local.\",\"id\":\"validateForm\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"formPath\":{\"type\":\"string\"}},\"required\":[\"formPath\"],\"type\":\"object\"}}]",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v2",
+      "predicate": "foundation:componentContractHash",
+      "object": {
+        "type": "literal",
+        "value": "sha256:bf5700daa7e749c021113494b457b75b0f4a59db929edb49338b2d01bb22f65c",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v2",
+      "predicate": "foundation:componentContractVersion",
+      "object": {
+        "type": "literal",
+        "value": "2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v2",
+      "predicate": "foundation:componentExamples",
+      "object": {
+        "type": "literal",
+        "value": "{\"elements\":{\"account\":{\"children\":[],\"props\":{\"facts\":[{\"label\":\"Última sincronização\",\"value\":\"Hoje, 10:30\"}],\"priority\":\"primary\",\"relationships\":[{\"label\":\"Instituição\",\"value\":\"Banco local\"}],\"status\":\"Conectada\",\"summary\":\"Dados sincronizados recentemente.\",\"title\":\"Conta principal\",\"urgency\":\"routine\"},\"type\":\"Information\"}},\"root\":\"account\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v2",
+      "predicate": "foundation:componentId",
+      "object": {
+        "type": "literal",
+        "value": "Information",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v2",
+      "predicate": "foundation:componentIntent",
+      "object": {
+        "type": "literal",
+        "value": "Organiza fatos, estado e relações para facilitar a compreensão no contexto atual.",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v2",
+      "predicate": "foundation:componentManifestVersion",
+      "object": {
+        "type": "literal",
+        "value": "1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v2",
+      "predicate": "foundation:componentPropsSchema",
+      "object": {
+        "type": "literal",
+        "value": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"facts\":{\"items\":{\"additionalProperties\":false,\"properties\":{\"label\":{\"type\":\"string\"},\"unit\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"label\",\"value\"],\"type\":\"object\"},\"type\":\"array\"},\"priority\":{\"enum\":[\"primary\",\"supporting\",\"supplemental\"],\"type\":\"string\"},\"relationships\":{\"items\":{\"additionalProperties\":false,\"properties\":{\"label\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"label\",\"value\"],\"type\":\"object\"},\"type\":\"array\"},\"role\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"summary\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"urgency\":{\"enum\":[\"routine\",\"attention\",\"urgent\"],\"type\":\"string\"}},\"required\":[\"title\"],\"type\":\"object\",\"x-foundation-element-bindings\":{\"additionalProperties\":false,\"description\":\"Bindings declarados no elemento JSON, ao lado de type/props. O valor é lido da entidade em foundation:rendersEntity e nunca copiado para specSource.\",\"properties\":{\"facts\":{\"additionalProperties\":false,\"properties\":{\"propertyIri\":{\"description\":\"IRI da propriedade da ontologia lida no runtime.\",\"minLength\":1,\"type\":\"string\"},\"source\":{\"const\":\"entity\",\"description\":\"Lê da entidade declarada em foundation:rendersEntity.\",\"type\":\"string\"}},\"required\":[\"source\",\"propertyIri\"],\"type\":\"object\"},\"relationships\":{\"additionalProperties\":false,\"properties\":{\"propertyIri\":{\"description\":\"IRI da propriedade da ontologia lida no runtime.\",\"minLength\":1,\"type\":\"string\"},\"source\":{\"const\":\"entity\",\"description\":\"Lê da entidade declarada em foundation:rendersEntity.\",\"type\":\"string\"}},\"required\":[\"source\",\"propertyIri\"],\"type\":\"object\"}},\"type\":\"object\"}}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v2",
+      "predicate": "rdf:type",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v2",
+      "predicate": "rdfs:label",
+      "object": {
+        "type": "literal",
+        "value": "Information v2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v3",
+      "predicate": "foundation:componentActionsSchema",
+      "object": {
+        "type": "literal",
+        "value": "[{\"description\":\"Apresenta uma mensagem local no widget.\",\"id\":\"announce\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"message\":{\"maxLength\":500,\"type\":\"string\"}},\"required\":[\"message\"],\"type\":\"object\"}},{\"description\":\"Executa uma ação local explicitamente conectada pelo widget.\",\"id\":\"perform\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}},{\"description\":\"Atualiza estado local do widget.\",\"id\":\"setState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Adiciona valor ao estado local do widget.\",\"id\":\"pushState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Remove valor do estado local do widget.\",\"id\":\"removeState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"index\":{\"type\":\"number\"},\"statePath\":{\"type\":\"string\"}},\"required\":[\"statePath\",\"index\"],\"type\":\"object\"}},{\"description\":\"Valida formulário local.\",\"id\":\"validateForm\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"formPath\":{\"type\":\"string\"}},\"required\":[\"formPath\"],\"type\":\"object\"}}]",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v3",
+      "predicate": "foundation:componentContractHash",
+      "object": {
+        "type": "literal",
+        "value": "sha256:b7d9daad5398491046e1bf53b232e7cae0f97addf1df46583332d44ad44a9f43",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v3",
+      "predicate": "foundation:componentContractVersion",
+      "object": {
+        "type": "literal",
+        "value": "3",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v3",
+      "predicate": "foundation:componentExamples",
+      "object": {
+        "type": "literal",
+        "value": "{\"elements\":{\"account\":{\"children\":[],\"props\":{\"facts\":[{\"label\":\"Última sincronização\",\"value\":\"Hoje, 10:30\"}],\"priority\":\"primary\",\"relationships\":[{\"label\":\"Instituição\",\"value\":\"Banco local\"}],\"status\":\"Conectada\",\"summary\":\"Dados sincronizados recentemente.\",\"title\":\"Conta principal\",\"urgency\":\"routine\"},\"type\":\"Information\"}},\"root\":\"account\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v3",
+      "predicate": "foundation:componentId",
+      "object": {
+        "type": "literal",
+        "value": "Information",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v3",
+      "predicate": "foundation:componentIntent",
+      "object": {
+        "type": "literal",
+        "value": "Organiza fatos, estado e relações para facilitar a compreensão no contexto atual.",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v3",
+      "predicate": "foundation:componentManifestVersion",
+      "object": {
+        "type": "literal",
+        "value": "2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v3",
+      "predicate": "foundation:componentPropsSchema",
+      "object": {
+        "type": "literal",
+        "value": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"facts\":{\"items\":{\"additionalProperties\":false,\"properties\":{\"label\":{\"type\":\"string\"},\"unit\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"label\",\"value\"],\"type\":\"object\"},\"type\":\"array\"},\"priority\":{\"enum\":[\"primary\",\"supporting\",\"supplemental\"],\"type\":\"string\"},\"relationships\":{\"items\":{\"additionalProperties\":false,\"properties\":{\"label\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"label\",\"value\"],\"type\":\"object\"},\"type\":\"array\"},\"role\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"summary\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"urgency\":{\"enum\":[\"routine\",\"attention\",\"urgent\"],\"type\":\"string\"}},\"required\":[\"title\"],\"type\":\"object\",\"x-foundation-element-bindings\":{\"additionalProperties\":false,\"description\":\"Bindings declarados no elemento JSON, ao lado de type/props. O valor é lido da entidade em foundation:rendersEntity e nunca copiado para specSource.\",\"properties\":{\"facts\":{\"additionalProperties\":false,\"properties\":{\"propertyIri\":{\"description\":\"IRI da propriedade da ontologia lida no runtime.\",\"minLength\":1,\"type\":\"string\"},\"source\":{\"const\":\"entity\",\"description\":\"Lê da entidade declarada em foundation:rendersEntity.\",\"type\":\"string\"}},\"required\":[\"source\",\"propertyIri\"],\"type\":\"object\"},\"relationships\":{\"additionalProperties\":false,\"properties\":{\"propertyIri\":{\"description\":\"IRI da propriedade da ontologia lida no runtime.\",\"minLength\":1,\"type\":\"string\"},\"source\":{\"const\":\"entity\",\"description\":\"Lê da entidade declarada em foundation:rendersEntity.\",\"type\":\"string\"}},\"required\":[\"source\",\"propertyIri\"],\"type\":\"object\"}},\"type\":\"object\"},\"x-foundation-slots\":[\"default\"]}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v3",
+      "predicate": "rdf:type",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v3",
+      "predicate": "rdfs:label",
+      "object": {
+        "type": "literal",
+        "value": "Information v3",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v4",
+      "predicate": "foundation:componentActionsSchema",
+      "object": {
+        "type": "literal",
+        "value": "[{\"description\":\"Apresenta uma mensagem local no widget.\",\"id\":\"announce\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"message\":{\"maxLength\":500,\"type\":\"string\"}},\"required\":[\"message\"],\"type\":\"object\"}},{\"description\":\"Executa uma ação local explicitamente conectada pelo widget.\",\"id\":\"perform\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}},{\"description\":\"Atualiza estado local do widget.\",\"id\":\"setState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Adiciona valor ao estado local do widget.\",\"id\":\"pushState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Remove valor do estado local do widget.\",\"id\":\"removeState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"index\":{\"type\":\"number\"},\"statePath\":{\"type\":\"string\"}},\"required\":[\"statePath\",\"index\"],\"type\":\"object\"}},{\"description\":\"Valida formulário local.\",\"id\":\"validateForm\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"formPath\":{\"type\":\"string\"}},\"required\":[\"formPath\"],\"type\":\"object\"}}]",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v4",
+      "predicate": "foundation:componentContractHash",
+      "object": {
+        "type": "literal",
+        "value": "sha256:b7d9daad5398491046e1bf53b232e7cae0f97addf1df46583332d44ad44a9f43",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v4",
+      "predicate": "foundation:componentContractVersion",
+      "object": {
+        "type": "literal",
+        "value": "4",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v4",
+      "predicate": "foundation:componentExamples",
+      "object": {
+        "type": "literal",
+        "value": "{\"elements\":{\"account\":{\"children\":[],\"props\":{\"facts\":[{\"label\":\"Última sincronização\",\"value\":\"Hoje, 10:30\"}],\"priority\":\"primary\",\"relationships\":[{\"label\":\"Instituição\",\"value\":\"Banco local\"}],\"status\":\"Conectada\",\"summary\":\"Dados sincronizados recentemente.\",\"title\":\"Conta principal\",\"urgency\":\"routine\"},\"type\":\"Information\"}},\"root\":\"account\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v4",
+      "predicate": "foundation:componentId",
+      "object": {
+        "type": "literal",
+        "value": "Information",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v4",
+      "predicate": "foundation:componentIntent",
+      "object": {
+        "type": "literal",
+        "value": "Organiza fatos, estado e relações para facilitar a compreensão no contexto atual.",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v4",
+      "predicate": "foundation:componentManifestVersion",
+      "object": {
+        "type": "literal",
+        "value": "2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v4",
+      "predicate": "foundation:componentPropsSchema",
+      "object": {
+        "type": "literal",
+        "value": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"facts\":{\"items\":{\"additionalProperties\":false,\"properties\":{\"label\":{\"type\":\"string\"},\"unit\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"label\",\"value\"],\"type\":\"object\"},\"type\":\"array\"},\"priority\":{\"enum\":[\"primary\",\"supporting\",\"supplemental\"],\"type\":\"string\"},\"relationships\":{\"items\":{\"additionalProperties\":false,\"properties\":{\"label\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"label\",\"value\"],\"type\":\"object\"},\"type\":\"array\"},\"role\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"summary\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"urgency\":{\"enum\":[\"routine\",\"attention\",\"urgent\"],\"type\":\"string\"}},\"required\":[\"title\"],\"type\":\"object\",\"x-foundation-element-bindings\":{\"additionalProperties\":false,\"description\":\"Bindings declarados no elemento JSON, ao lado de type/props. O valor é lido da entidade em foundation:rendersEntity e nunca copiado para specSource.\",\"properties\":{\"facts\":{\"additionalProperties\":false,\"properties\":{\"propertyIri\":{\"description\":\"IRI da propriedade da ontologia lida no runtime.\",\"minLength\":1,\"type\":\"string\"},\"source\":{\"const\":\"entity\",\"description\":\"Lê da entidade declarada em foundation:rendersEntity.\",\"type\":\"string\"}},\"required\":[\"source\",\"propertyIri\"],\"type\":\"object\"},\"relationships\":{\"additionalProperties\":false,\"properties\":{\"propertyIri\":{\"description\":\"IRI da propriedade da ontologia lida no runtime.\",\"minLength\":1,\"type\":\"string\"},\"source\":{\"const\":\"entity\",\"description\":\"Lê da entidade declarada em foundation:rendersEntity.\",\"type\":\"string\"}},\"required\":[\"source\",\"propertyIri\"],\"type\":\"object\"}},\"type\":\"object\"},\"x-foundation-slots\":[\"default\"]}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v4",
+      "predicate": "foundation:hasStatus",
+      "object": {
+        "type": "iri",
+        "value": "foundation:Status_1781300928499"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v4",
+      "predicate": "rdf:type",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_Information_v4",
+      "predicate": "rdfs:label",
+      "object": {
+        "type": "literal",
+        "value": "Information v4",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v1",
+      "predicate": "foundation:componentActionsSchema",
+      "object": {
+        "type": "literal",
+        "value": "[{\"description\":\"Apresenta uma mensagem local no widget.\",\"id\":\"announce\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"message\":{\"maxLength\":500,\"type\":\"string\"}},\"required\":[\"message\"],\"type\":\"object\"}},{\"description\":\"Executa uma ação local explicitamente conectada pelo widget.\",\"id\":\"perform\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}},{\"description\":\"Atualiza estado local do widget.\",\"id\":\"setState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Adiciona valor ao estado local do widget.\",\"id\":\"pushState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Remove valor do estado local do widget.\",\"id\":\"removeState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"index\":{\"type\":\"number\"},\"statePath\":{\"type\":\"string\"}},\"required\":[\"statePath\",\"index\"],\"type\":\"object\"}},{\"description\":\"Valida formulário local.\",\"id\":\"validateForm\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"formPath\":{\"type\":\"string\"}},\"required\":[\"formPath\"],\"type\":\"object\"}}]",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v1",
+      "predicate": "foundation:componentContractHash",
+      "object": {
+        "type": "literal",
+        "value": "sha256:b7356b929d4963a3c078992282d9f277fb233470418881cc24a11cff4ab64e33",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v1",
+      "predicate": "foundation:componentContractVersion",
+      "object": {
+        "type": "literal",
+        "value": "1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v1",
+      "predicate": "foundation:componentExamples",
+      "object": {
+        "type": "literal",
+        "value": "{\"elements\":{\"amount\":{\"children\":[],\"props\":{\"editable\":true,\"label\":\"Valor mensal\",\"unit\":\"BRL\",\"valid\":true,\"value\":{\"$bindState\":\"/monthlyAmount\"},\"valueType\":\"currency\"},\"type\":\"ValueEntry\"}},\"root\":\"amount\",\"state\":{\"monthlyAmount\":\"1200\"}}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v1",
+      "predicate": "foundation:componentId",
+      "object": {
+        "type": "literal",
+        "value": "ValueEntry",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v1",
+      "predicate": "foundation:componentIntent",
+      "object": {
+        "type": "literal",
+        "value": "Apresenta ou coleta um valor respeitando tipo, unidade, validação, sensibilidade e editabilidade.",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v1",
+      "predicate": "foundation:componentManifestVersion",
+      "object": {
+        "type": "literal",
+        "value": "1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v1",
+      "predicate": "foundation:componentPropsSchema",
+      "object": {
+        "type": "literal",
+        "value": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"cardinality\":{\"enum\":[\"single\",\"multiple\"],\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"editable\":{\"default\":true,\"type\":\"boolean\"},\"label\":{\"type\":\"string\"},\"labelVisible\":{\"type\":\"boolean\"},\"language\":{\"type\":\"string\"},\"placeholder\":{\"type\":\"string\"},\"required\":{\"type\":\"boolean\"},\"sensitive\":{\"type\":\"boolean\"},\"unit\":{\"type\":\"string\"},\"valid\":{\"type\":\"boolean\"},\"validationMessage\":{\"type\":\"string\"},\"value\":{\"anyOf\":[{\"type\":\"string\"},{\"items\":{\"type\":\"string\"},\"type\":\"array\"}]},\"valueType\":{\"enum\":[\"text\",\"email\",\"number\",\"boolean\",\"date\",\"date_time\",\"currency\",\"percentage\",\"url\",\"code\",\"markdown\",\"html\",\"query_config\",\"recurrence_rule\"],\"type\":\"string\"}},\"required\":[\"label\",\"valueType\",\"editable\"],\"type\":\"object\"}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v1",
+      "predicate": "rdf:type",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v1",
+      "predicate": "rdfs:label",
+      "object": {
+        "type": "literal",
+        "value": "ValueEntry v1",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v2",
+      "predicate": "foundation:componentActionsSchema",
+      "object": {
+        "type": "literal",
+        "value": "[{\"description\":\"Apresenta uma mensagem local no widget.\",\"id\":\"announce\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"message\":{\"maxLength\":500,\"type\":\"string\"}},\"required\":[\"message\"],\"type\":\"object\"}},{\"description\":\"Executa uma ação local explicitamente conectada pelo widget.\",\"id\":\"perform\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}},{\"description\":\"Atualiza estado local do widget.\",\"id\":\"setState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Adiciona valor ao estado local do widget.\",\"id\":\"pushState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"statePath\":{\"type\":\"string\"},\"value\":{}},\"required\":[\"statePath\",\"value\"],\"type\":\"object\"}},{\"description\":\"Remove valor do estado local do widget.\",\"id\":\"removeState\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"index\":{\"type\":\"number\"},\"statePath\":{\"type\":\"string\"}},\"required\":[\"statePath\",\"index\"],\"type\":\"object\"}},{\"description\":\"Valida formulário local.\",\"id\":\"validateForm\",\"paramsSchema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"formPath\":{\"type\":\"string\"}},\"required\":[\"formPath\"],\"type\":\"object\"}}]",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v2",
+      "predicate": "foundation:componentContractHash",
+      "object": {
+        "type": "literal",
+        "value": "sha256:0dce753b2847b1d12001d8a4a4d3c707c7540972187dcd6c1ea97f729c6d407f",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v2",
+      "predicate": "foundation:componentContractVersion",
+      "object": {
+        "type": "literal",
+        "value": "2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v2",
+      "predicate": "foundation:componentExamples",
+      "object": {
+        "type": "literal",
+        "value": "{\"elements\":{\"amount\":{\"children\":[],\"props\":{\"editable\":true,\"label\":\"Valor mensal\",\"unit\":\"BRL\",\"valid\":true,\"value\":{\"$bindState\":\"/monthlyAmount\"},\"valueType\":\"currency\"},\"type\":\"ValueEntry\"}},\"root\":\"amount\",\"state\":{\"monthlyAmount\":\"1200\"}}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v2",
+      "predicate": "foundation:componentId",
+      "object": {
+        "type": "literal",
+        "value": "ValueEntry",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v2",
+      "predicate": "foundation:componentIntent",
+      "object": {
+        "type": "literal",
+        "value": "Apresenta ou coleta um valor respeitando tipo, unidade, validação, sensibilidade e editabilidade.",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v2",
+      "predicate": "foundation:componentManifestVersion",
+      "object": {
+        "type": "literal",
+        "value": "2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v2",
+      "predicate": "foundation:componentPropsSchema",
+      "object": {
+        "type": "literal",
+        "value": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"additionalProperties\":false,\"properties\":{\"cardinality\":{\"enum\":[\"single\",\"multiple\"],\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"editable\":{\"default\":true,\"type\":\"boolean\"},\"label\":{\"type\":\"string\"},\"labelVisible\":{\"type\":\"boolean\"},\"language\":{\"type\":\"string\"},\"placeholder\":{\"type\":\"string\"},\"required\":{\"type\":\"boolean\"},\"sensitive\":{\"type\":\"boolean\"},\"unit\":{\"type\":\"string\"},\"valid\":{\"type\":\"boolean\"},\"validationMessage\":{\"type\":\"string\"},\"value\":{\"anyOf\":[{\"type\":\"string\"},{\"items\":{\"type\":\"string\"},\"type\":\"array\"}]},\"valueType\":{\"enum\":[\"text\",\"email\",\"number\",\"boolean\",\"date\",\"date_time\",\"currency\",\"percentage\",\"url\",\"code\",\"markdown\",\"html\",\"query_config\",\"recurrence_rule\"],\"type\":\"string\"}},\"required\":[\"label\",\"valueType\",\"editable\"],\"type\":\"object\",\"x-foundation-element-bindings\":{\"additionalProperties\":false,\"description\":\"Bindings declarados no elemento JSON, ao lado de type/props. O valor é lido da entidade em foundation:rendersEntity e nunca copiado para specSource.\",\"properties\":{\"value\":{\"additionalProperties\":false,\"properties\":{\"propertyIri\":{\"description\":\"IRI da propriedade da ontologia lida no runtime.\",\"minLength\":1,\"type\":\"string\"},\"source\":{\"const\":\"entity\",\"description\":\"Lê da entidade declarada em foundation:rendersEntity.\",\"type\":\"string\"}},\"required\":[\"source\",\"propertyIri\"],\"type\":\"object\"}},\"type\":\"object\"}}",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v2",
+      "predicate": "foundation:hasStatus",
+      "object": {
+        "type": "iri",
+        "value": "foundation:Status_1781300928499"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v2",
+      "predicate": "rdf:type",
+      "object": {
+        "type": "iri",
+        "value": "foundation:SemanticComponentDefinition"
+      }
+    },
+    {
+      "subject": "foundation:SemanticComponentDefinition_ValueEntry_v2",
+      "predicate": "rdfs:label",
+      "object": {
+        "type": "literal",
+        "value": "ValueEntry v2",
+        "datatype": "xsd:string",
+        "language": null
+      }
+    }
+  ]
+}

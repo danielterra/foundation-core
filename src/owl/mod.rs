@@ -3,10 +3,10 @@ pub mod cardinality;
 mod class;
 pub mod expr;
 pub mod formula;
-pub mod materialization;
 mod graph_config;
 mod icons;
 mod individual;
+pub mod materialization;
 mod property;
 pub mod query_property;
 pub mod search;
@@ -33,9 +33,11 @@ pub fn current_snapshot_tx(conn: &Connection) -> std::result::Result<i64, String
         .map_err(|e| OwlError::DatabaseError(e.to_string()).to_string())
 }
 
-pub fn entity_last_tx(conn: &Connection, subject: &str) -> std::result::Result<Option<i64>, String> {
-    crate::eavto::query::entity_last_tx(conn, subject)
-        .map_err(map_entity_revision_database_error)
+pub fn entity_last_tx(
+    conn: &Connection,
+    subject: &str,
+) -> std::result::Result<Option<i64>, String> {
+    crate::eavto::query::entity_last_tx(conn, subject).map_err(map_entity_revision_database_error)
 }
 
 fn map_entity_revision_database_error(error: Box<dyn std::error::Error>) -> String {
